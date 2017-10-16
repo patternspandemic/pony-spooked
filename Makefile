@@ -1,11 +1,11 @@
-build/{PACKAGE}: build {PACKAGE}/*.pony
-	ponyc {PACKAGE} -o build --debug
+build/spooked: build spooked/*.pony
+	ponyc spooked -o build --debug
 
 build:
 	mkdir build
 
-test: build/{PACKAGE}
-	build/{PACKAGE}
+test: build/spooked
+	build/spooked
 
 clean:
 	rm -rf build

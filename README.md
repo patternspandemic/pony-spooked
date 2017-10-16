@@ -1,12 +1,12 @@
-# {REPO}
+# pony-spooked
 
-{PROJECT_DESCRIPTION}
+pony-spooked is a Neo4j Bolt driver for the Pony programming language.
 
 ## Status
 
-[![Build Status](https://travis-ci.org/{USERNAME}/{REPO}.svg?branch=master)](https://travis-ci.org/{USERNAME}/{REPO})
+[![Build Status](https://travis-ci.org/patternspandemic/pony-spooked.svg?branch=master)](https://travis-ci.org/patternspandemic/pony-spooked)
 
-{PROJECT_STATUS}
+Development of pony-spooked has only just begun.
 
 ## Installation
 
@@ -16,10 +16,10 @@
 ```json
 { 
   "type": "github",
-  "repo": "{USERNAME}/{REPO}"
+  "repo": "patternspandemic/pony-spooked"
 }
 ```
 
 * `stable fetch` to fetch your dependencies
-* `use "{PACKAGE}"` to include this package
+* `use "spooked"` to include this package
 * `stable env ponyc` to compile your application

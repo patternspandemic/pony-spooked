@@ -1,4 +1,6 @@
 use "buffered"
+use "format"
+use "itertools"
 
 primitive _FormatInt8
   """Signed 8-bit integer (two's complement)"""
@@ -76,9 +78,15 @@ primitive _PackStream
     two-character hexadecimal string and is joined to its neighbours with a
     colon character.
     """
-    for b in data.values() do
-      
-    end
+    let data_array =
+      match data
+      | let data': Array[U8] val => data'
+      | let data': String => data'.array()
+      end
+    ":".join(
+      Iter[U8](data_array.values())
+        .map[String](
+          {(b) => Format.int[U8](b, FormatHexBare, PrefixDefault, 2)}))
 
   fun packed(values: Array[_PackStreamType]): Array[U8] iso^ =>
     """

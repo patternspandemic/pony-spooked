@@ -88,6 +88,7 @@ primitive _PackStream
         .map[String](
           {(b) => Format.int[U8](b, FormatHexBare, PrefixDefault, 2)}))
 
+/*
   fun packed(values: Array[_PackStreamType]): Array[U8] iso^ =>
     """
     """
@@ -95,3 +96,4 @@ primitive _PackStream
   fun unpacked(data: Array[U8], offset: USize = 0): =>
     """
     """
+*/

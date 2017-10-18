@@ -8,4 +8,11 @@ actor Main is TestList
     None
 
   fun tag tests(test: PonyTest) =>
-    None
+    test(_TestPackStreamH)
+
+
+class iso _TestPackStreamH is UnitTest
+  fun name(): String => "_PackStreamH"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[String]("03:41:7E", _PackStream.h("\x03A~"))

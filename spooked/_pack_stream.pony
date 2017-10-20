@@ -158,7 +158,7 @@ primitive _PackStream
           // INT_32
           wb.write([0xCA])
           wb.i32_be(v.i32())
-        elseif (-0x80000000 <= v) and (v < 0x80000000) then
+        elseif (-0x8000000000000000 <= v) and (v <= 0x7FFFFFFFFFFFFFFF) then
           // INT_64
           wb.write([0xCB])
           wb.i64_be(v)

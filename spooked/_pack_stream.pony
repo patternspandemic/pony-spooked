@@ -1,68 +1,53 @@
 use "buffered"
+use "collections"
 use "format"
 use "itertools"
 
-/* Probably don't need
-
-primitive _FormatInt8
-  """Signed 8-bit integer (two's complement)"""
-  fun apply(): String => ">b"
-
-primitive _FormatInt16
-  """Signed 16-bit integer (two's complement)"""
-  fun apply(): String => ">h"
-
-primitive _FormatInt32
-  """Signed 32-bit integer (two's complement)"""
-  fun apply(): String => ">i"
-
-primitive _FormatInt64
-  """Signed 64-bit integer (two's complement)"""
-  fun apply(): String => ">q"
-
-primitive _FormatUInt8
-  """Unsigned 8-bit integer"""
-  fun apply(): String => ">B"
-
-primitive _FormatUInt16
-  """Unsigned 16-bit integer"""
-  fun apply(): String => ">H"
-
-primitive _FormatUInt32
-  """Unsigned 32-bit integer"""
-  fun apply(): String => ">I"
-
-primitive _FormatFloat64
-  """IEEE double-precision floating-point format"""
-  fun apply(): String => ">d"
-
-type PackStreamFormat is
-  ( _FormatInt8
-  | _FormatInt16
-  | _FormatInt32
-  | _FormatInt64
-  | _FormatUInt8
-  | _FormatUInt16
-  | _FormatUInt32
-  | _FormatFloat64
+type PackStreamType is
+  ( PackStreamNull // absence of value
+  | PackStreamBoolean // true or false
+  | PackStreamInteger // signed 64-bit integer
+  | PackStreamFloat // 64-bit floating point number
+  | PackStreamString // UTF-8 encoded text data
+  | PackStreamList // ordered collection of values
+  | PackStreamMap // keyed collection of values
+  | PackStreamStructure // composite set of values with a type signature
   )
-*/
 
-// Temp
+// PackStream to Pony type mapping
+type PackStreamNull      is None
+type PackStreamBoolean   is Bool
+type PackStreamInteger   is I64
+type PackStreamFloat     is F64
+type PackStreamString    is String
+type PackStreamList      is _PackStreamList
+type PackStreamMap       is _PackStreamMap
+type PackStreamStructure is _PackStreamStructure
+
+
 class _PackStreamArray
-class _PackStreamMap
-class _PackStreamStructure
+  var data: Array[PackStreamType]
 
-type _PackStreamType is
-  ( None // absence of value
-  | Bool // true or false
-  | I64 // signed 64-bit integer
-  | F64 // 64-bit floating point number
-  | String // UTF-8 encoded text data
-  | _PackStreamArray // ordered collection of values
-  | _PackStreamMap // keyed collection of values
-  | _PackStreamStructure // composite set of values with a type signature
-  )
+  new create(length: USize = 0) =>
+    data = Array[PackStreamType](length)
+
+  new from_array(data': Array[PackStreamType]) =>
+    data = data'
+
+
+class _PackStreamMap
+  var data: Map[String, PackStreamType]
+
+  new create(prealloc: USize = 6) =>
+    data = Map[String, PackStreamType](prealloc)
+
+  new from_map(data': Map[String, PackStreamType]) =>
+    data = data'
+
+
+class _PackStreamStructure
+  // TODO _PackStreamStructure
+
 
 primitive _PackStream
   """
@@ -89,7 +74,7 @@ primitive _PackStream
         .map[String](
           {(b) => Format.int[U8](b, FormatHexBare, PrefixDefault, 2)}))
 
-  fun packed(values': Array[_PackStreamType]): Array[U8] iso^ ? =>
+  fun packed(values': Array[PackStreamType]): Array[U8] iso^ ? =>
     """ PackStream types to bytes functionality. """
     // A buffer to collect the encoded byte pieces
     // of each value found in the values' array.
@@ -98,11 +83,11 @@ primitive _PackStream
     // Encode each value in turn
     for value in values'.values() do
       match value
-      | None =>
+      | PackStreamNull =>
         // None is always encoded using the single marker byte C0.
         wb.write([0xC0])
 
-      | let v: Bool =>
+      | let v: PackStreamBoolean =>
         // Boolean values are encoded within a single marker byte,
         // using C3 to denote true and C2 to denote false.
         let marker: Array[U8] val =
@@ -113,7 +98,7 @@ primitive _PackStream
           end
           wb.write(marker)
 
-      | let v: I64 =>
+      | let v: PackStreamInteger =>
         // Integer values occupy either 1, 2, 3, 5 or 9 bytes depending on
         // magnitude. Several markers are designated specifically as TINY_INT
         // values and can therefore be used to pass a small number in a single
@@ -166,7 +151,7 @@ primitive _PackStream
         //   // Integer value out of packable range
         end
 
-      | let v: F64 =>
+      | let v: PackStreamFloat =>
         // These are double-precision floating-point values, generally used for
         // representing fractions and decimals. Floats are encoded as a single
         // C1 marker byte followed by 8 bytes which are formatted according to
@@ -185,7 +170,7 @@ primitive _PackStream
         wb.write([0xC1])
         wb.f64_be(v)
 
-      | let v: String =>
+      | let v: PackStreamString =>
         // Text data is represented as UTF-8 encoded bytes. Note that the sizes
         // used in string representations are the byte counts of the UTF-8
         // encoded data, not the character count of the original text.
@@ -224,9 +209,9 @@ primitive _PackStream
         end
         wb.write(string_bytes)
 
-      | let v: _PackStreamArray => None
-      | let v: _PackStreamMap => None
-      | let v: _PackStreamStructure => None
+      | let v: PackStreamList => None
+      | let v: PackStreamNull => None
+      | let v: PackStreamStructure => None
 
       end
     end

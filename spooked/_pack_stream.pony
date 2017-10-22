@@ -25,7 +25,7 @@ type PackStreamMap       is _PackStreamMap
 type PackStreamStructure is _PackStreamStructure
 
 
-class _PackStreamArray
+class _PackStreamList
   var data: Array[PackStreamType]
 
   new create(length: USize = 0) =>
@@ -74,7 +74,7 @@ primitive _PackStream
         .map[String](
           {(b) => Format.int[U8](b, FormatHexBare, PrefixDefault, 2)}))
 
-  fun packed(values': Array[PackStreamType]): Array[U8] iso^ ? =>
+  fun packed(values': Array[PackStreamType]): Array[U8] val^ ? =>
     """ PackStream types to bytes functionality. """
     // A buffer to collect the encoded byte pieces
     // of each value found in the values' array.
@@ -210,13 +210,53 @@ primitive _PackStream
         wb.write(string_bytes)
 
       | let v: PackStreamList => None
+        // Lists are heterogeneous sequences of values and therefore permit a
+        // mixture of types within the same list. The size of a list denotes
+        // the number of items within that list, rather than the total packed
+        // byte size. The markers used to denote a list are described in the
+        // table below:
+        //
+        //   Marker | Size                                | Maximum size
+        //  ========|=====================================|====================
+        //   90..9F | stored in low-order nibble of mrkr  | 15 bytes
+        //   D4     | 8-bit big-endian unsigned integer   | 255 items
+        //   D5     | 16-bit big-endian unsigned integer  | 65 535 items
+        //   D6     | 32-bit big-endian unsigned integer  | 4 294 967 295 items
+        //
+        // For lists containing fewer than 16 items, including empty lists, the
+        // marker byte should contain the high-order nibble '9' (binary 1001)
+        // followed by a low-order nibble containing the size. The items within
+        // the list are then serialised in order immediately after the marker.
+        //
+        // For lists containing 16 items or more, the marker D4, D5 or D6
+        // should be used, depending on scale. This marker is followed by the
+        // size and list items, serialized in order.
+        let size = v.data.size()
+        if size < 0x10 then
+          wb.u8((0x90 + size).u8())
+        elseif size < 0x100 then
+          wb.write([0xD4])
+          wb.u8(size.u8())
+        elseif size < 0x10000 then
+          wb.write([0xD5])
+          wb.u16_be(size.u16())
+        elseif size < 0x100000000 then
+          wb.write([0xD5])
+          wb.u32_be(size.u32())
+        else
+          // List too long to pack
+          error
+        end
+        let list_bytes: Array[U8] val = packed(v.data)?
+        wb.write(list_bytes)
+
       | let v: PackStreamNull => None
       | let v: PackStreamStructure => None
 
       end
     end
 
-    let b = recover iso Array[U8] end
+    let b = recover trn Array[U8] end
     for chunk in wb.done().values() do
       b.append(chunk)
     end

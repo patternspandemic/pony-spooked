@@ -1,4 +1,5 @@
 use "ponytest"
+use "collections"
 
 actor Main is TestList
   new create(env: Env) =>
@@ -14,6 +15,7 @@ actor Main is TestList
     test(_TestPackStreamPackedInteger)
     test(_TestPackStreamPackedFloat)
     test(_TestPackStreamPackedString)
+    test(_TestPackStreamPackedList)
 
 
 class iso _TestPackStreamH is UnitTest
@@ -162,3 +164,39 @@ class iso _TestPackStreamPackedString is UnitTest
       "D0:12:47:72:C3:B6:C3:9F:65:6E:6D:61:C3:9F:73:74:C3:A4:62:65", // "Größenmaßstäbe"
       _PackStream.h(
         _PackStream.packed(["Größenmaßstäbe"])?))
+
+class iso _TestPackStreamPackedList is UnitTest
+  fun name(): String => "PackStreamPackedList"
+
+  fun apply(h: TestHelper) ? =>
+    var list = PackStreamList
+    // Empty list
+    h.assert_eq[String](
+      "90",
+      _PackStream.h(
+        _PackStream.packed([list])?))
+    // [1, 2, 3]
+    list.data
+      .> push(I64(1))
+      .> push(I64(2))
+      .> push(I64(3))
+    h.assert_eq[String](
+      "93:01:02:03",
+      _PackStream.h(
+        _PackStream.packed([list])?))
+    // [1, 2.0, "three"]
+    list.data(1)? = F64(2.0)
+    list.data(2)? = "three"
+    h.assert_eq[String](
+      "93:01:C1:40:00:00:00:00:00:00:00:85:74:68:72:65:65",
+      _PackStream.h(
+        _PackStream.packed([list])?))
+    // [1, 2, 3 ... 40]
+    list.data.clear()
+    for i in Range(1, 41) do
+      list.data.push(i.i64())
+    end
+    h.assert_eq[String](
+      "D4:28:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F:20:21:22:23:24:25:26:27:28",
+      _PackStream.h(
+        _PackStream.packed([list])?))

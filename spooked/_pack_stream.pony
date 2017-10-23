@@ -36,6 +36,7 @@ class _PackStreamList
 
 
 class _PackStreamMap
+  // TODO: [_PackStreamMap] Support PackStreamType keys?
   var data: Map[String, PackStreamType]
 
   new create(prealloc: USize = 6) =>
@@ -209,7 +210,7 @@ primitive _PackStream
         end
         wb.write(string_bytes)
 
-      | let v: PackStreamList => None
+      | let v: PackStreamList =>
         // Lists are heterogeneous sequences of values and therefore permit a
         // mixture of types within the same list. The size of a list denotes
         // the number of items within that list, rather than the total packed
@@ -250,7 +251,53 @@ primitive _PackStream
         let list_bytes: Array[U8] val = packed(v.data)?
         wb.write(list_bytes)
 
-      | let v: PackStreamNull => None
+      | let v: PackStreamMap =>
+        // Maps are sets of key-value pairs that permit a mixture of types
+        // within the same map. The size of a map denotes the number of pairs
+        // within that map, not the total packed byte size. The markers used to
+        // denote a map are described in the table below:
+        //
+        //   Marker | Size                               | Maximum size
+        //  ========|====================================|=====================
+        //   A0..AF | stored in low-order nibble of mrkr | 15 entries
+        //   D8     | 8-bit big-endian unsigned integer  | 255 entries
+        //   D9     | 16-bit big-endian unsigned integer | 65 535 entries
+        //   DA     | 32-bit big-endian unsigned integer | 4 294 967 295 ntries
+        //
+        // For maps containing fewer than 16 key-value pairs, including empty
+        // maps, the marker byte should contain the high-order nibble 'A'
+        // (binary 1010) followed by a low-order nibble containing the size.
+        // The entries within the map are then serialised in [key, value, key,
+        // value] order immediately after the marker. Keys are generally text
+        // values.
+        //
+        // For maps containing 16 pairs or more, the marker D8, D9 or DA should
+        // be used, depending on scale. This marker is followed by the size and
+        // map entries. The order in which map entries are encoded is not
+        // important; maps are, by definition, unordered.
+        let size = v.data.size()
+        if size < 0x10 then
+          wb.u8((0xA0 + size).u8())
+        elseif size < 0x100 then
+          wb.write([0xD8])
+          wb.u8(size.u8())
+        elseif size < 0x10000 then
+          wb.write([0xD9])
+          wb.u16_be(size.u16())
+        elseif size < 0x100000000 then
+          wb.write([0xDA])
+          wb.u32_be(size.u32())
+        else
+          // Map too long to pack
+          error
+        end
+        let map_pairs_array = Array[PackStreamType]
+        for (k', v') in v.data.pairs() do
+          map_pairs_array .> push(k') .> push(v')
+        end
+        let map_bytes: Array[U8] val = packed(map_pairs_array)?
+        wb.write(map_bytes)
+
       | let v: PackStreamStructure => None
 
       end

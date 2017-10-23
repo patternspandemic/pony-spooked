@@ -16,6 +16,7 @@ actor Main is TestList
     test(_TestPackStreamPackedFloat)
     test(_TestPackStreamPackedString)
     test(_TestPackStreamPackedList)
+    test(_TestPackStreamPackedMap)
 
 
 class iso _TestPackStreamH is UnitTest
@@ -200,3 +201,40 @@ class iso _TestPackStreamPackedList is UnitTest
       "D4:28:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F:20:21:22:23:24:25:26:27:28",
       _PackStream.h(
         _PackStream.packed([list])?))
+
+class iso _TestPackStreamPackedMap is UnitTest
+  fun name(): String => "PackStreamPackedMap"
+
+  fun apply(h: TestHelper) ? =>
+    var map = PackStreamMap
+    // Empty map
+    h.assert_eq[String](
+      "A0",
+      _PackStream.h(
+        _PackStream.packed([map])?))
+    // {"one": "eins"}
+    map.data("one") = "eins"
+    h.assert_eq[String](
+      "A1:83:6F:6E:65:84:65:69:6E:73",
+      _PackStream.h(
+        _PackStream.packed([map])?))
+    // {"A": 1, "B": 2, ... "Z": 26}
+    map.data.clear()
+    let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    var pos: USize = 0
+    for i in Range(0, 26) do
+      pos = i + 1
+      map.data(alphabet.trim(i, pos)) = pos.i64()
+    end
+    h.assert_eq[String](
+      "D8:1A:81:45:05:81:57:17:81:42:02:81:4A:0A:81:41:01:81:53:13:81:4B:0B:81:49:09:81:4E:0E:81:55:15:81:4D:0D:81:4C:0C:81:5A:1A:81:54:14:81:56:16:81:43:03:81:59:19:81:44:04:81:47:07:81:46:06:81:50:10:81:58:18:81:51:11:81:4F:0F:81:48:08:81:52:12",
+      _PackStream.h(
+        _PackStream.packed([map])?))
+
+// TODO: Since map encoding is unordered, the test will have to iterate over
+// string returned from h(), asserting existence of each triple of string
+// marker byte (81), string byte, and integer TINY_INT byte. Also assert the
+// beginning map marker and size (D8:1A)
+
+// D8:1A:81:45:05:81:57:17:81:42:02:81:4A:0A:81:41:01:81:53:13:81:4B:0B:81:49:09:81:4E:0E:81:55:15:81:4D:0D:81:4C:0C:81:5A:1A:81:54:14:81:56:16:81:43:03:81:59:19:81:44:04:81:47:07:81:46:06:81:50:10:81:58:18:81:51:11:81:4F:0F:81:48:08:81:52:12
+// D8:1A:81:41:01:81:4F:0F:81:44:04:81:4A:0A:81:56:16:81:50:10:81:42:02:81:57:17:81:54:14:81:4D:0D:81:52:12:81:59:19:81:58:18:81:48:08:81:51:11:81:55:15:81:49:09:81:53:13:81:4B:0B:81:5A:1A:81:46:06:81:45:05:81:43:03:81:4E:0E:81:4C:0C:81:47:07

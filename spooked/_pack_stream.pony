@@ -47,7 +47,7 @@ class _PackStreamMap
 
 
 class _PackStreamStructure
-  // TODO _PackStreamStructure
+  // TODO _PackStreamStructure, not sure how best to utilize.
 
 
 primitive _PackStream
@@ -298,8 +298,13 @@ primitive _PackStream
         let map_bytes: Array[U8] val = packed(map_pairs_array)?
         wb.write(map_bytes)
 
-      | let v: PackStreamStructure => None
+      | let v: PackStreamStructure =>
+        // TODO: Packing of PackStreamStructure
+        error
 
+      else
+        // Don't know how to encode unmatched value
+        error
       end
     end
 
@@ -314,3 +319,19 @@ primitive _PackStream
     """
     """
 */
+
+
+class _Packed
+  """
+  The Packed class provides a framework for "unpacking" packed data. Given a
+  string of byte data and an initial offset, values can be extracted via the
+  unpack method.
+  """
+
+  let rb: Reader
+
+  new create(data: ByteSeq, offset: USize = 0) ? =>
+    rb = Reader
+    rb.append(data) .> skip(offset)?
+
+  fun unpack(count: USize = 1): Iter[PackStreamType] ? =>

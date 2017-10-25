@@ -36,13 +36,12 @@ class _PackStreamList
 
 
 class _PackStreamMap
-  // TODO: [_PackStreamMap] Support PackStreamType keys?
-  var data: Map[String, PackStreamType]
+  var data: MapIs[PackStreamType, PackStreamType]
 
   new create(prealloc: USize = 6) =>
-    data = Map[String, PackStreamType](prealloc)
+    data = MapIs[PackStreamType, PackStreamType](prealloc)
 
-  new from_map(data': Map[String, PackStreamType]) =>
+  new from_map(data': MapIs[PackStreamType, PackStreamType]) =>
     data = data'
 
 
@@ -321,7 +320,7 @@ primitive _PackStream
 */
 
 
-class _Packed is Iterator[Array[PackStreamType]]
+class _Packed is Iterator[PackStreamType]
   """
   The Packed class provides a framework for "unpacking" packed data. Given a
   string of byte data and an initial offset, values can be extracted via the
@@ -331,7 +330,7 @@ class _Packed is Iterator[Array[PackStreamType]]
   let _rb: Reader
   let _data: ByteSeq
   var _has_next: Bool = false
-  var _next: Array[PackStreamType] = []
+  var _next: PackStreamType = None
 
   new create(data: ByteSeq, offset: USize = 0) ? =>
     _rb = Reader
@@ -339,17 +338,17 @@ class _Packed is Iterator[Array[PackStreamType]]
     _rb.append(_data)
     _rb.skip(offset)?
     try
-      _next = _unpack()?
+      _next = _unpack()? as PackStreamType
       _has_next = true
     end
 
   fun ref has_next(): Bool val =>
     _has_next
 
-  fun ref next(): Array[PackStreamType] =>
+  fun ref next(): PackStreamType =>
     let r = _next
     try
-      _next = _unpack()?
+      _next = _unpack()? as PackStreamType
     else
       _has_next = false
     end
@@ -363,55 +362,91 @@ class _Packed is Iterator[Array[PackStreamType]]
   fun ref _unpack_string(length: USize): String val ? =>
     String.from_array(_rb.block(length)?)
 
-  fun ref _unpack(count: USize = 1): Array[PackStreamType] ? =>
-    var unpacked =Array[PackStreamType].create(count)
+  fun ref _unpack_map(
+    pair_count: USize)
+    : MapIs[PackStreamType, PackStreamType] ?
+  =>
+    let pair_data = _unpack(pair_count)? as Array[PackStreamType]
 
-    for range in Range(0, count) do
+    let key_iter =
+      Iter[PackStreamType](pair_data.values())
+        .enum().filter_map[PackStreamType](
+          {(pair: (USize, PackStreamType)): (PackStreamType | None) =>
+            if (pair._1 % 2) == 0 then pair._2 end })
+
+    let val_iter =
+      Iter[PackStreamType](pair_data.values())
+        .enum().filter_map[PackStreamType](
+          {(pair: (USize, PackStreamType)): (PackStreamType | None) =>
+            if (pair._1 % 2) != 0 then pair._2 end })
+
+    let kv_pairs = key_iter.zip[PackStreamType](val_iter)
+
+    let m: MapIs[PackStreamType, PackStreamType] = m.create(pair_count)
+    m.concat(kv_pairs)
+    m
+
+  fun ref _unpack(
+    count: USize = 1)
+    : (PackStreamType | Array[PackStreamType]) ?
+  =>
+    var unpacked: (PackStreamType | Array[PackStreamType]) =
+      if count == 1 then
+        None
+      else
+        Array[PackStreamType].create(count)
+      end
+
+    for _ in Range(0, count) do
       let marker_byte = _rb.u8()?
       match marker_byte
       // Null
-      | 0xC0 => unpacked.push(None)
+      | 0xC0 => unpacked = None
       // Boolean
-      | 0xC2 => unpacked.push(false)
-      | 0xC3 => unpacked.push(true)
+      | 0xC2 => unpacked = false
+      | 0xC3 => unpacked = true
       // Integer
-      | let mb: U8 if mb < 0x80 => unpacked.push(mb.i64())
-      | let mb: U8 if mb >= 0xF0 => unpacked.push((mb - 0x0FF).i64())
-      | 0xC8 => unpacked.push(_rb.i8()?.i64())
-      | 0xC9 => unpacked.push(_rb.i16_be()?.i64())
-      | 0xCA => unpacked.push(_rb.i32_be()?.i64())
-      | 0xCB => unpacked.push(_rb.i64_be()?.i64())
+      | let mb: U8 if mb < 0x80 => unpacked = mb.i64()
+      | let mb: U8 if mb >= 0xF0 => unpacked = (mb - 0x0FF).i64()
+      | 0xC8 => unpacked = _rb.i8()?.i64()
+      | 0xC9 => unpacked = _rb.i16_be()?.i64()
+      | 0xCA => unpacked = _rb.i32_be()?.i64()
+      | 0xCB => unpacked = _rb.i64_be()?.i64()
       // Float
-      | 0xC1 => unpacked.push(_rb.f64_be()?)
+      | 0xC1 => unpacked = _rb.f64_be()?
       // String
       | let mb: U8 if (0x80 <= mb) and (mb < 0x90) =>
-        let s = _unpack_string((mb and 0x0F).usize())?
-        unpacked.push(s)
-      | 0xD0 =>
-        let s = _unpack_string(_rb.u8()?.usize())?
-        unpacked.push(s)
-      | 0xD1 =>
-        let s = _unpack_string(_rb.u16_be()?.usize())?
-        unpacked.push(s)
-      | 0xD2 =>
-        let s = _unpack_string(_rb.u32_be()?.usize())?
-        unpacked.push(s)
+        unpacked = _unpack_string((mb and 0x0F).usize())?
+      | 0xD0 => unpacked = _unpack_string(_rb.u8()?.usize())?
+      | 0xD1 => unpacked = _unpack_string(_rb.u16_be()?.usize())?
+      | 0xD2 => unpacked = _unpack_string(_rb.u32_be()?.usize())?
       // PackStreamList
       | let mb: U8 if (0x90 <= mb) and (mb < 0xA0) =>
-        let list_items = _unpack((mb and 0x0F).usize())?
-        unpacked.push(PackStreamList.from_array(consume list_items))
-      | 0xD4 =>
-        let list_items = _unpack(_rb.u8()?.usize())?
-        unpacked.push(PackStreamList.from_array(consume list_items))
-      | 0xD5 =>
-        let list_items = _unpack(_rb.u16_be()?.usize())?
-        unpacked.push(PackStreamList.from_array(consume list_items))
-      | 0xD6 =>
-        let list_items = _unpack(_rb.u32_be()?.usize())?
-        unpacked.push(PackStreamList.from_array(consume list_items))
+        unpacked = PackStreamList.from_array(
+          _unpack((mb and 0x0F).usize())? as Array[PackStreamType])
+      | 0xD4 => unpacked = PackStreamList.from_array(
+          _unpack(_rb.u8()?.usize())? as Array[PackStreamType])
+      | 0xD5 => unpacked = PackStreamList.from_array(
+          _unpack(_rb.u16_be()?.usize())? as Array[PackStreamType])
+      | 0xD6 => unpacked = PackStreamList.from_array(
+          _unpack(_rb.u32_be()?.usize())? as Array[PackStreamType])
       // PackStreamMap
-
+      | let mb: U8 if (0xA0 <= mb) and (mb < 0xB0) =>
+        unpacked = PackStreamMap.from_map(
+          _unpack_map((mb and 0x0F).usize())?)
+      | 0xD8 => unpacked = PackStreamMap.from_map(
+          _unpack_map(_rb.u8()?.usize())?)
+      | 0xD9 => unpacked = PackStreamMap.from_map(
+          _unpack_map(_rb.u16_be()?.usize())?)
+      | 0xDA => unpacked = PackStreamMap.from_map(
+          _unpack_map(_rb.u32_be()?.usize())?)
+      // PackStreamStructure
+      | let mb: U8 if (0xB0 <= mb) and (mb < 0xC0) =>
+        // TODO: [PackStreamStructure] _unpack
+        error
+      else
+        // Unknown marker byte
+        error
       end
     end
-
     unpacked

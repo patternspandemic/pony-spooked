@@ -1,5 +1,6 @@
-use "ponytest"
 use "collections"
+use "itertools"
+use "ponytest"
 
 actor Main is TestList
   new create(env: Env) =>
@@ -10,6 +11,7 @@ actor Main is TestList
 
   fun tag tests(test: PonyTest) =>
     test(_TestPackStreamH)
+    // Test packing
     test(_TestPackStreamPackedNone)
     test(_TestPackStreamPackedBoolean)
     test(_TestPackStreamPackedInteger)
@@ -17,6 +19,14 @@ actor Main is TestList
     test(_TestPackStreamPackedString)
     test(_TestPackStreamPackedList)
     test(_TestPackStreamPackedMap)
+    // Test unpacking
+    test(_TestPackStreamUnpackedNone)
+    test(_TestPackStreamUnpackedBoolean)
+    test(_TestPackStreamUnpackedInteger)
+    test(_TestPackStreamUnpackedFloat)
+    test(_TestPackStreamUnpackedString)
+    test(_TestPackStreamUnpackedList)
+    // test(_TestPackStreamUnpackedMap)
 
 
 class iso _TestPackStreamH is UnitTest
@@ -34,6 +44,15 @@ class iso _TestPackStreamPackedNone is UnitTest
       _PackStream.h(
         _PackStream.packed([None])?))
 
+class iso _TestPackStreamUnpackedNone is UnitTest
+  fun name(): String => "PackStreamUnpackedNone"
+
+  fun apply(h: TestHelper) ? =>
+    var value = PackStreamNull
+    var pkd = _PackStream.packed([value])?
+    var unpkd = _PackStream.unpacked(pkd)? as PackStreamNull
+    h.assert_eq[PackStreamNull](value, unpkd)
+
 class iso _TestPackStreamPackedBoolean is UnitTest
   fun name(): String => "PackStreamPackedBoolean"
 
@@ -46,6 +65,19 @@ class iso _TestPackStreamPackedBoolean is UnitTest
       "C3", // true
       _PackStream.h(
         _PackStream.packed([true])?))
+
+class iso _TestPackStreamUnpackedBoolean is UnitTest
+  fun name(): String => "PackStreamUnpackedBoolean"
+
+  fun apply(h: TestHelper) ? =>
+    for value in [
+      false
+      true
+    ].values() do
+      let pkd = _PackStream.packed([value])?
+      let unpkd = _PackStream.unpacked(pkd)? as PackStreamBoolean
+      h.assert_eq[PackStreamBoolean](value, unpkd)
+    end
 
 class iso _TestPackStreamPackedInteger is UnitTest
   fun name(): String => "PackStreamPackedInteger"
@@ -132,6 +164,33 @@ class iso _TestPackStreamPackedInteger is UnitTest
       _PackStream.h(
         _PackStream.packed([I64(9_223_372_036_854_775_807)])?))
 
+class iso _TestPackStreamUnpackedInteger is UnitTest
+  fun name(): String => "PackStreamUnpackedInteger"
+
+  fun apply(h: TestHelper) ? =>
+    for value in [
+      I64(-9_223_372_036_854_775_808)
+      I64(-2_147_483_649)
+      I64(-2_147_483_648)
+      I64(-32_769)
+      I64(-32_768)
+      I64(-129)
+      I64(-128)
+      I64(-17)
+      I64(-16)
+      I64(127)
+      I64(128)
+      I64(32_767)
+      I64(32_768)
+      I64(2_147_483_647)
+      I64(2_147_483_648)
+      I64(9_223_372_036_854_775_807)
+    ].values() do
+      let pkd = _PackStream.packed([value])?
+      let unpkd = _PackStream.unpacked(pkd)? as PackStreamInteger
+      h.assert_eq[PackStreamInteger](value, unpkd)
+    end
+
 class iso _TestPackStreamPackedFloat is UnitTest
   fun name(): String => "PackStreamPackedFloat"
 
@@ -144,6 +203,19 @@ class iso _TestPackStreamPackedFloat is UnitTest
       "C1:BF:F1:99:99:99:99:99:9A", // -1.1
       _PackStream.h(
         _PackStream.packed([F64(-1.1)])?))
+
+class iso _TestPackStreamUnpackedFloat is UnitTest
+  fun name(): String => "PackStreamUnpackedFloat"
+
+  fun apply(h: TestHelper) ? =>
+    for value in [
+      F64(1.1)
+      F64(-1.1)
+    ].values() do
+      let pkd = _PackStream.packed([value])?
+      let unpkd = _PackStream.unpacked(pkd)? as PackStreamFloat
+      h.assert_eq[PackStreamFloat](value, unpkd)
+    end
 
 class iso _TestPackStreamPackedString is UnitTest
   fun name(): String => "PackStreamPackedString"
@@ -165,6 +237,21 @@ class iso _TestPackStreamPackedString is UnitTest
       "D0:12:47:72:C3:B6:C3:9F:65:6E:6D:61:C3:9F:73:74:C3:A4:62:65", // "Größenmaßstäbe"
       _PackStream.h(
         _PackStream.packed(["Größenmaßstäbe"])?))
+
+class iso _TestPackStreamUnpackedString is UnitTest
+  fun name(): String => "PackStreamUnpackedString"
+
+  fun apply(h: TestHelper) ? =>
+    for value in [
+      ""
+      "A"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "Größenmaßstäbe"
+    ].values() do
+      let pkd = _PackStream.packed([value])?
+      let unpkd = _PackStream.unpacked(pkd)? as PackStreamString
+      h.assert_eq[PackStreamString](value, unpkd)
+    end
 
 class iso _TestPackStreamPackedList is UnitTest
   fun name(): String => "PackStreamPackedList"
@@ -201,6 +288,29 @@ class iso _TestPackStreamPackedList is UnitTest
       "D4:28:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F:20:21:22:23:24:25:26:27:28",
       _PackStream.h(
         _PackStream.packed([list])?))
+
+// TODO: Fix _TestPackStreamUnpackedList
+class iso _TestPackStreamUnpackedList is UnitTest
+  fun name(): String => "PackStreamUnpackedList"
+
+  fun apply(h: TestHelper) ? =>
+    error
+    /*
+    // let one_to_forty = Array[PackStreamType].create(40)
+    // Iter[I64](Range[I64](1, 41)).collect[Array[PackStreamType]](one_to_forty)
+    let pack_stream_lists: Array[PackStreamList] =
+      [
+        PackStreamList.from_array([])
+        PackStreamList.from_array([I64(1); I64(2); I64(3)])
+        PackStreamList.from_array([I64(1); F64(2.0); "three"])
+        // PackStreamList.from_array(one_to_forty)
+      ]
+    for value in pack_stream_lists.values() do
+      let pkd = _PackStream.packed([value])?
+      let unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+      h.assert_eq[PackStreamList](value, unpkd)
+    end
+    */
 
 class iso _TestPackStreamPackedMap is UnitTest
   fun name(): String => "PackStreamPackedMap"

@@ -33,7 +33,18 @@ class _PackStreamList
 
   new from_array(data': Array[PackStreamType]) =>
     data = data'
+/*
+  fun eq(that: _PackStreamList box): Bool =>
+    data is that.data
 
+  fun ne(that: _PackStreamList box): Bool =>
+    not eq(that)
+
+  fun string(): String iso^ =>
+    let r = "Heh?"
+    let x = r.clone()
+    consume x
+*/
 
 class _PackStreamMap
   var data: MapIs[PackStreamType, PackStreamType]
@@ -313,11 +324,9 @@ primitive _PackStream
     end
     consume b
 
-/*
-  fun unpacked(data: Array[U8], offset: USize = 0): =>
-    """
-    """
-*/
+  fun unpacked(data: ByteSeq, offset: USize = 0): PackStreamType ? =>
+    """ Bytes to PackStream type functionality. """
+    _Packed(data, offset)?.next()
 
 
 class _Packed is Iterator[PackStreamType]
@@ -340,6 +349,9 @@ class _Packed is Iterator[PackStreamType]
     try
       _next = _unpack()? as PackStreamType
       _has_next = true
+    else
+      // No PackStreamTypes available
+      error
     end
 
   fun ref has_next(): Bool val =>
@@ -407,7 +419,7 @@ class _Packed is Iterator[PackStreamType]
       | 0xC3 => unpacked = true
       // Integer
       | let mb: U8 if mb < 0x80 => unpacked = mb.i64()
-      | let mb: U8 if mb >= 0xF0 => unpacked = (mb - 0x0FF).i64()
+      | let mb: U8 if mb >= 0xF0 => unpacked = (mb.i64() - 0x100) //.i64()
       | 0xC8 => unpacked = _rb.i8()?.i64()
       | 0xC9 => unpacked = _rb.i16_be()?.i64()
       | 0xCA => unpacked = _rb.i32_be()?.i64()

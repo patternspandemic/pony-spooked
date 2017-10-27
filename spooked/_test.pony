@@ -26,7 +26,7 @@ actor Main is TestList
     test(_TestPackStreamUnpackedFloat)
     test(_TestPackStreamUnpackedString)
     test(_TestPackStreamUnpackedList)
-    // test(_TestPackStreamUnpackedMap)
+    test(_TestPackStreamUnpackedMap)
 
 
 class iso _TestPackStreamH is UnitTest
@@ -289,28 +289,35 @@ class iso _TestPackStreamPackedList is UnitTest
       _PackStream.h(
         _PackStream.packed([list])?))
 
-// TODO: Fix _TestPackStreamUnpackedList
 class iso _TestPackStreamUnpackedList is UnitTest
   fun name(): String => "PackStreamUnpackedList"
 
   fun apply(h: TestHelper) ? =>
-    error
-    /*
-    // let one_to_forty = Array[PackStreamType].create(40)
-    // Iter[I64](Range[I64](1, 41)).collect[Array[PackStreamType]](one_to_forty)
-    let pack_stream_lists: Array[PackStreamList] =
-      [
-        PackStreamList.from_array([])
-        PackStreamList.from_array([I64(1); I64(2); I64(3)])
-        PackStreamList.from_array([I64(1); F64(2.0); "three"])
-        // PackStreamList.from_array(one_to_forty)
-      ]
-    for value in pack_stream_lists.values() do
-      let pkd = _PackStream.packed([value])?
-      let unpkd = _PackStream.unpacked(pkd)? as PackStreamList
-      h.assert_eq[PackStreamList](value, unpkd)
-    end
-    */
+    var value: PackStreamList
+    var pkd: ByteSeq
+    var unpkd: PackStreamList
+    // Empty list
+    value = PackStreamList.from_array([])
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    // Homogeneous list
+    value = PackStreamList.from_array([I64(1); I64(2); I64(3)])
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    // Heterogeneous list
+    value = PackStreamList.from_array([I64(1); F64(2.0); "three"])
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    // Longer list
+    let one_to_forty = Array[PackStreamType].create(40)
+    Iter[I64](Range[I64](1, 41)).map_stateful[None]({(x) => one_to_forty.push(x)}).run()
+    value = PackStreamList.from_array(one_to_forty)
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
 
 class iso _TestPackStreamPackedMap is UnitTest
   fun name(): String => "PackStreamPackedMap"
@@ -349,3 +356,24 @@ class iso _TestPackStreamPackedMap is UnitTest
     for sub_seq in sub_seq_asserts.values() do
       h.assert_true(packed_map.contains(sub_seq))
     end
+
+// TODO: [PackStreamMap] Fix Failing tests
+class iso _TestPackStreamUnpackedMap is UnitTest
+  fun name(): String => "PackStreamUnpackedMap"
+
+  fun apply(h: TestHelper) ? =>
+    var map: PackStreamMap
+    var pkd: ByteSeq
+    var unpkd: PackStreamMap
+    // Empty Map
+    map = PackStreamMap
+    pkd = _PackStream.packed([map])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
+    h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)
+    // {"one": "eins"}
+    map.data("one") = "eins"
+    pkd = _PackStream.packed([map])?
+    h.log(_PackStream.h(pkd))
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
+    h.log(_PackStream.h(_PackStream.packed([unpkd])?))
+    h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)

@@ -373,7 +373,51 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     // {"one": "eins"}
     map.data("one") = "eins"
     pkd = _PackStream.packed([map])?
-    h.log(_PackStream.h(pkd))
     unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
-    h.log(_PackStream.h(_PackStream.packed([unpkd])?))
     h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)
+    // {"A": 1, "B": 2, ... "Z": 26}
+    map.data.clear()
+    let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    var pos: USize = 0
+    for i in Range(0, 26) do
+      pos = i + 1
+      map.data(alphabet.trim(i, pos)) = pos.i64()
+    end
+    pkd = _PackStream.packed([map])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
+    // Cannot assert_eq _hashed_packed because map pairs are unordered...
+    // Assert map sizes
+    h.assert_eq[USize](map.data.size(), unpkd.data.size())
+    // Cannot directly compare due to MapIs (?), so copy into Maps
+    var map' = Map[String, I64].create(map.data.size())
+    for (k,v) in map.data.pairs() do
+      map'(k as String) = v as I64
+    end
+    var unpkd' = Map[String, I64].create(unpkd.data.size())
+    for (k,v) in unpkd.data.pairs() do
+      unpkd'(k as String) = v as I64
+    end
+    // Assert each has required keys with equal values.
+    pos = 0
+    for i in Range(0, 26) do
+      pos = i + 1
+      let letter: String = alphabet.trim(i, pos)
+        h.assert_eq[I64](
+          map'(letter)? as PackStreamInteger,
+          unpkd'(letter)? as PackStreamInteger)
+    end
+    // Repack `unpkd`, and assert it has the packed subsequences representing
+    // packed pairs.
+    let repacked_unpkd = _PackStream.h(_PackStream.packed([unpkd])?)
+    let sub_seq_asserts = [
+      "D8:1A" // D8 marker, 26 pairs
+      ":81:41:01"; ":81:42:02"; ":81:43:03"; ":81:44:04"; ":81:45:05" // ABCDE
+      ":81:46:06"; ":81:47:07"; ":81:48:08"; ":81:49:09"; ":81:4A:0A" // FGHIJ
+      ":81:4B:0B"; ":81:4C:0C"; ":81:4D:0D"; ":81:4E:0E"; ":81:4F:0F" // KLMNO
+      ":81:50:10"; ":81:51:11"; ":81:52:12"; ":81:53:13"; ":81:54:14" // PQRST
+      ":81:55:15"; ":81:56:16"; ":81:57:17"; ":81:58:18"; ":81:59:19" // UVWXY
+      ":81:5A:1A" // Z
+    ]
+    for sub_seq in sub_seq_asserts.values() do
+      h.assert_true(repacked_unpkd.contains(sub_seq))
+    end

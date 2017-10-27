@@ -377,15 +377,13 @@ class _Packed is Iterator[PackStreamType]
 
     let key_iter =
       Iter[PackStreamType](pair_data.values())
-        .enum().filter_map[PackStreamType](
-          {(pair: (USize, PackStreamType)): (PackStreamType | None) =>
-            if (pair._1 % 2) == 0 then pair._2 end })
+        .enum().filter( {(pair) => (pair._1 % 2) == 0 } )
+        .map[PackStreamType]( {(pair) => pair._2 })
 
     let val_iter =
       Iter[PackStreamType](pair_data.values())
-        .enum().filter_map[PackStreamType](
-          {(pair: (USize, PackStreamType)): (PackStreamType | None) =>
-            if (pair._1 % 2) != 0 then pair._2 end })
+        .enum().filter( {(pair) => (pair._1 % 2) != 0 } )
+        .map[PackStreamType]( {(pair) => pair._2 })
 
     let kv_pairs = key_iter.zip[PackStreamType](val_iter)
 

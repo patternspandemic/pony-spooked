@@ -11,6 +11,7 @@ actor Main is TestList
 
   fun tag tests(test: PonyTest) =>
     test(_TestPackStreamH)
+
     // Test packing
     test(_TestPackStreamPackedNone)
     test(_TestPackStreamPackedBoolean)
@@ -20,6 +21,7 @@ actor Main is TestList
     test(_TestPackStreamPackedList)
     test(_TestPackStreamPackedMap)
     test(_TestPackStreamPackedStructure)
+
     // Test unpacking
     test(_TestPackStreamUnpackedNone)
     test(_TestPackStreamUnpackedBoolean)
@@ -29,6 +31,10 @@ actor Main is TestList
     test(_TestPackStreamUnpackedList)
     test(_TestPackStreamUnpackedMap)
     test(_TestPackStreamUnpackedStructure)
+
+    // Test handshake
+    test(_TestHandshakePreamble)
+    test(_TestHandshakeClientBoltVersions)
 
 
 class iso _TestPackStreamH is UnitTest
@@ -479,3 +485,22 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     h.assert_eq[U8](value.signature, unpkd.signature)
     h.assert_eq[USize](value.fields.size(), unpkd.fields.size())
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+
+class iso _TestHandshakePreamble is UnitTest
+  fun name(): String => "HandshakePreamble"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[String](
+      "60:60:B0:17",
+      _PackStream.h(Handshake()))
+
+class iso _TestHandshakeClientBoltVersions is UnitTest
+  fun name(): String => "HandshakeClientBoltVersions"
+
+  fun apply(h: TestHelper) =>
+    h.assert_eq[String](
+      "00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00",
+      _PackStream.h(ClientBoltVersions()))
+    h.assert_eq[String](
+      "00:00:00:04:00:00:00:03:00:00:00:02:00:00:00:01",
+      _PackStream.h(ClientBoltVersions(4, 3, 2, 1)))

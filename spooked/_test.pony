@@ -19,6 +19,7 @@ actor Main is TestList
     test(_TestPackStreamPackedString)
     test(_TestPackStreamPackedList)
     test(_TestPackStreamPackedMap)
+    test(_TestPackStreamPackedStructure)
     // Test unpacking
     test(_TestPackStreamUnpackedNone)
     test(_TestPackStreamUnpackedBoolean)
@@ -27,6 +28,7 @@ actor Main is TestList
     test(_TestPackStreamUnpackedString)
     test(_TestPackStreamUnpackedList)
     test(_TestPackStreamUnpackedMap)
+    test(_TestPackStreamUnpackedStructure)
 
 
 class iso _TestPackStreamH is UnitTest
@@ -357,7 +359,6 @@ class iso _TestPackStreamPackedMap is UnitTest
       h.assert_true(packed_map.contains(sub_seq))
     end
 
-// TODO: [PackStreamMap] Fix Failing tests
 class iso _TestPackStreamUnpackedMap is UnitTest
   fun name(): String => "PackStreamUnpackedMap"
 
@@ -421,3 +422,60 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     for sub_seq in sub_seq_asserts.values() do
       h.assert_true(repacked_unpkd.contains(sub_seq))
     end
+
+class iso _TestPackStreamPackedStructure is UnitTest
+  fun name(): String => "PackStreamPackedStructure"
+
+  fun apply(h: TestHelper) ? =>
+    var structure: PackStreamStructure
+    var signature: U8
+    var fields = Array[PackStreamType]
+    // Struct(sig=0x01, fields=[1,2,3])
+    signature = 0x01
+    fields
+      .> push(I64(1))
+      .> push(I64(2))
+      .> push(I64(3))
+    structure = PackStreamStructure(signature, fields)
+    h.assert_eq[String](
+      "B3:01:01:02:03",
+      _PackStream.h(
+        _PackStream.packed([structure])?))
+    // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
+    structure.signature = 0x7F
+    structure.fields
+      .> push(I64(4)) .> push(I64(5)) .> push(I64(6)) .> push(I64(7))
+      .> push(I64(8)) .> push(I64(9)) .> push(I64(0)) .> push(I64(1))
+      .> push(I64(2)) .> push(I64(3)) .> push(I64(4)) .> push(I64(5))
+      .> push(I64(6))
+    h.assert_eq[String](
+      "DC:10:7F:01:02:03:04:05:06:07:08:09:00:01:02:03:04:05:06",
+      _PackStream.h(
+        _PackStream.packed([structure])?))
+
+class iso _TestPackStreamUnpackedStructure is UnitTest
+  fun name(): String => "PackStreamUnpackedStructure"
+
+  fun apply(h: TestHelper) ? =>
+    var value: PackStreamStructure
+    var pkd: ByteSeq
+    var unpkd: PackStreamStructure
+    // Struct(sig=0x01, fields=[1,2,3])
+    value = PackStreamStructure(0x01, [I64(1); I64(2); I64(3)])
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure
+    h.assert_eq[U8](value.signature, unpkd.signature)
+    h.assert_eq[USize](value.fields.size(), unpkd.fields.size())
+    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
+    value.signature = 0x7f
+    value.fields
+      .> push(I64(4)) .> push(I64(5)) .> push(I64(6)) .> push(I64(7))
+      .> push(I64(8)) .> push(I64(9)) .> push(I64(0)) .> push(I64(1))
+      .> push(I64(2)) .> push(I64(3)) .> push(I64(4)) .> push(I64(5))
+      .> push(I64(6))
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure
+    h.assert_eq[U8](value.signature, unpkd.signature)
+    h.assert_eq[USize](value.fields.size(), unpkd.fields.size())
+    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)

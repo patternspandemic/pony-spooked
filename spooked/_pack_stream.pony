@@ -52,7 +52,15 @@ class _PackStreamMap
 
 
 class _PackStreamStructure
-  // TODO _PackStreamStructure, not sure how best to utilize.
+  var signature: U8
+  var fields: Array[PackStreamType]
+
+  new create(signature': U8, fields': Array[PackStreamType]) =>
+    signature = signature'
+    fields = fields'
+
+  fun ref _hashed_packed(): U64 ? =>
+    HashByteSeq.hash(_PackStream.packed([this])?)
 
 
 primitive _PackStream
@@ -304,8 +312,46 @@ primitive _PackStream
         wb.write(map_bytes)
 
       | let v: PackStreamStructure =>
-        // TODO: Packing of PackStreamStructure
-        error
+        // Structures represent composite values and consist, beyond the marker
+        // of a single byte signature followed by a sequence of fields, each an
+        // individual value. The size of a structure is measured as the number
+        // of fields and not the total byte size. This count does not include
+        // the signature. The markers used to denote a  structure are described
+        // in the table below:
+        //
+        //   Marker | Size                               | Maximum size
+        //  ========|====================================|=====================
+        //   B0..BF | stored in low-order nibble of mrkr | 15 fields
+        //   DC     | 8-bit big-endian unsigned integer  | 255 fields
+        //   DD     | 16-bit big-endian unsigned integer | 65 535 fields
+        //
+        // The signature byte is used to identify the type or class of the
+        // structure. Signature bytes may hold any value between 0 and +127.
+        // Bytes with the high bit set are reserved for future expansion. For
+        // structures containing fewer than 16 fields, the marker byte should
+        // contain the high-order nibble 'B' (binary 1011) followed by a low-
+        // order nibble containing the size. The marker is immediately
+        // followed by the signature byte and the field values.
+        //
+        // For structures containing 16 fields or more, the marker DC or DD
+        // should be used, depending on scale. This marker is followed by the
+        // size, the signature byte and the fields, serialised in order.
+        let size = v.fields.size()
+        if size < 0x10 then
+          wb.u8((0xB0 + size).u8())
+        elseif size < 0x100 then
+          wb.write([0xDC])
+          wb.u8(size.u8())
+        elseif size < 0x10000 then
+          wb.write([0xDD])
+          wb.u16_be(size.u16())
+        else
+          // Structure too big to pack
+          error
+        end
+        let fields_bytes: Array[U8] val = packed(v.fields)?
+        wb.u8(v.signature)
+        wb.write(fields_bytes)
 
       else
         // Don't know how to encode unmatched value
@@ -391,6 +437,14 @@ class _Packed is Iterator[PackStreamType]
     m.concat(kv_pairs)
     m
 
+  fun ref _unpack_structure(
+    field_count: USize)
+    : (U8, Array[PackStreamType]) ?
+  =>
+    let signature = _rb.u8()?
+    let fields = _unpack(field_count)? as Array[PackStreamType]
+    (signature, fields)
+
   fun ref _unpack(
     count: USize = 1)
     : (PackStreamType | Array[PackStreamType]) ?
@@ -442,8 +496,14 @@ class _Packed is Iterator[PackStreamType]
           _unpack_map(_rb.u32_be()?.usize())?))
       // PackStreamStructure
       | let mb: U8 if (0xB0 <= mb) and (mb < 0xC0) =>
-        // TODO: [PackStreamStructure] _unpack
-        error
+        (let signature, let fields) = _unpack_structure((mb and 0x0F).usize())?
+        unpacked.push(PackStreamStructure(signature, fields))
+      | 0xDC =>
+        (let signature, let fields) = _unpack_structure(_rb.u8()?.usize())?
+        unpacked.push(PackStreamStructure(signature, fields))
+      | 0xDD =>
+        (let signature, let fields) = _unpack_structure(_rb.u16_be()?.usize())?
+        unpacked.push(PackStreamStructure(signature, fields))
       else
         // Unknown marker byte
         error

@@ -22,3 +22,6 @@ primitive ClientBoltVersions
     end
 
     consume b
+
+
+class ConnectionSettings

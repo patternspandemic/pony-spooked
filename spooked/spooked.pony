@@ -48,5 +48,5 @@ primitive Neo4j
 
 
 primitive Spooked
-  fun version_string(): String => "2017.10"
   fun agent_string(): String => "pony-spooked"
+  fun version_string(): String => "2017.10"

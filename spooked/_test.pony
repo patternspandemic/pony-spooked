@@ -32,6 +32,18 @@ actor Main is TestList
     test(_TestPackStreamUnpackedMap)
     test(_TestPackStreamUnpackedStructure)
 
+    // Test message structures
+    test(_TestClientMessageInit)
+    test(_TestClientMessageRun)
+    test(_TestClientMessageDiscardAll)
+    test(_TestClientMessagePullAll)
+    test(_TestClientMessageAckFailure)
+    test(_TestClientMessageReset)
+    // test(_TestServerMessageRecord)
+    // test(_TestServerMessageSuccess)
+    // test(_TestServerMessageFailure)
+    // test(_TestServerMessageIgnored)
+
     // Test handshake
     test(_TestHandshakePreamble)
     test(_TestHandshakeClientBoltVersions)
@@ -487,6 +499,89 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     h.assert_eq[U8](value.signature, unpkd.signature)
     h.assert_eq[USize](value.field_count(), unpkd.field_count())
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+
+class iso _TestClientMessageInit is UnitTest
+  fun name(): String => "ClientMessageInit"
+
+  fun apply(h: TestHelper) ? =>
+    let user_agent: String = "MyClient/1.0"
+    let auth_map = PackStreamMap
+    auth_map.data("scheme") = "basic"
+    auth_map.data("principal") = "neo4j"
+    auth_map.data("credentials") = "secret"
+    let msg_struct = InitMessage(user_agent, auth_map)
+    let pkd = _PackStream.packed([msg_struct])?
+    let pkd_string = _PackStream.h(pkd)
+    let sub_seq_asserts = [
+      "B2:01" // B2 structure marker, signature of 0x01
+      "8C:4D:79:43:6C:69:65:6E:74:2F:31:2E:30" // 8C string marker, "MyClient/1.0"
+      "86:73:63:68:65:6D:65:85:62:61:73:69:63" // "scheme" : "basic"
+      "89:70:72:69:6E:63:69:70:61:6C:85:6E:65:6F:34:6A" // "principal" : "neo4j"
+      "8B:63:72:65:64:65:6E:74:69:61:6C:73:86:73:65:63:72:65:74" // "credentials" : "secret"
+    ]
+    for sub_seq in sub_seq_asserts.values() do
+      h.assert_true(pkd_string.contains(sub_seq))
+    end
+
+class iso _TestClientMessageRun is UnitTest
+  fun name(): String => "ClientMessageRun"
+
+  fun apply(h: TestHelper) ? =>
+    let statement: String = "RETURN 1 AS num"
+    let parameters = PackStreamMap
+    let msg_struct = RunMessage(statement, parameters)
+    let pkd = _PackStream.packed([msg_struct])?
+    // Works only due to empty param map
+    h.assert_eq[String](
+      "B2:10:8F:52:45:54:55:52:4E:20:31:20:41:53:20:6E:75:6D:A0",
+      _PackStream.h(pkd))
+
+class iso _TestClientMessageDiscardAll is UnitTest
+  fun name(): String => "ClientMessageDiscardAll"
+
+  fun apply(h: TestHelper) ? =>
+    let msg_struct = DiscardAllMessage()
+    let pkd = _PackStream.packed([msg_struct])?
+    h.assert_eq[String](
+      "B0:2F",
+      _PackStream.h(pkd))
+
+class iso _TestClientMessagePullAll is UnitTest
+  fun name(): String => "ClientMessagePullAll"
+
+  fun apply(h: TestHelper) ? =>
+    let msg_struct = PullAllMessage()
+    let pkd = _PackStream.packed([msg_struct])?
+    h.assert_eq[String](
+      "B0:3F",
+      _PackStream.h(pkd))
+
+class iso _TestClientMessageAckFailure is UnitTest
+  fun name(): String => "ClientMessageAckFailure"
+
+  fun apply(h: TestHelper) ? =>
+    let msg_struct = AckFailureMessage()
+    let pkd = _PackStream.packed([msg_struct])?
+    h.assert_eq[String](
+      "B0:0E",
+      _PackStream.h(pkd))
+
+class iso _TestClientMessageReset is UnitTest
+  fun name(): String => "ClientMessageReset"
+
+  fun apply(h: TestHelper) ? =>
+    let msg_struct = ResetMessage()
+    let pkd = _PackStream.packed([msg_struct])?
+    h.assert_eq[String](
+      "B0:0F",
+      _PackStream.h(pkd))
+
+/*
+_TestServerMessageRecord
+_TestServerMessageSuccess
+_TestServerMessageFailure
+_TestServerMessageIgnored
+*/
 
 class iso _TestHandshakePreamble is UnitTest
   fun name(): String => "HandshakePreamble"

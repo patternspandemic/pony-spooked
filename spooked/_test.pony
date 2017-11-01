@@ -449,7 +449,8 @@ class iso _TestPackStreamPackedStructure is UnitTest
         _PackStream.packed([structure])?))
     // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
     structure.signature = 0x7F
-    structure.fields
+    fields = structure.fields as Array[PackStreamType]
+    fields
       .> push(I64(4)) .> push(I64(5)) .> push(I64(6)) .> push(I64(7))
       .> push(I64(8)) .> push(I64(9)) .> push(I64(0)) .> push(I64(1))
       .> push(I64(2)) .> push(I64(3)) .> push(I64(4)) .> push(I64(5))
@@ -471,11 +472,12 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     pkd = _PackStream.packed([value])?
     unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure
     h.assert_eq[U8](value.signature, unpkd.signature)
-    h.assert_eq[USize](value.fields.size(), unpkd.fields.size())
+    h.assert_eq[USize](value.field_count(), unpkd.field_count())
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
     // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
     value.signature = 0x7f
-    value.fields
+    var fields = value.fields as Array[PackStreamType]
+    fields
       .> push(I64(4)) .> push(I64(5)) .> push(I64(6)) .> push(I64(7))
       .> push(I64(8)) .> push(I64(9)) .> push(I64(0)) .> push(I64(1))
       .> push(I64(2)) .> push(I64(3)) .> push(I64(4)) .> push(I64(5))
@@ -483,7 +485,7 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     pkd = _PackStream.packed([value])?
     unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure
     h.assert_eq[U8](value.signature, unpkd.signature)
-    h.assert_eq[USize](value.fields.size(), unpkd.fields.size())
+    h.assert_eq[USize](value.field_count(), unpkd.field_count())
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
 
 class iso _TestHandshakePreamble is UnitTest

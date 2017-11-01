@@ -53,11 +53,17 @@ class _PackStreamMap
 
 class _PackStreamStructure
   var signature: U8
-  var fields: Array[PackStreamType]
+  var fields: (Array[PackStreamType] | None)
 
-  new create(signature': U8, fields': Array[PackStreamType]) =>
+  new create(signature': U8, fields': (Array[PackStreamType] | None) = None) =>
     signature = signature'
     fields = fields'
+
+  fun ref field_count(): USize =>
+    match fields
+    | None => 0
+    | let field_array: Array[PackStreamType] => field_array.size()
+    end
 
   fun ref _hashed_packed(): U64 ? =>
     HashByteSeq.hash(_PackStream.packed([this])?)
@@ -336,7 +342,12 @@ primitive _PackStream
         // For structures containing 16 fields or more, the marker DC or DD
         // should be used, depending on scale. This marker is followed by the
         // size, the signature byte and the fields, serialised in order.
-        let size = v.fields.size()
+        let size: USize =
+          match v.fields
+          | None => 0
+          | let field_array: Array[PackStreamType] => field_array.size()
+          end
+
         if size < 0x10 then
           wb.u8((0xB0 + size).u8())
         elseif size < 0x100 then
@@ -349,9 +360,13 @@ primitive _PackStream
           // Structure too big to pack
           error
         end
-        let fields_bytes: Array[U8] val = packed(v.fields)?
+
         wb.u8(v.signature)
-        wb.write(fields_bytes)
+        if size > 0 then
+          let fields_bytes: Array[U8] val =
+            packed(v.fields as Array[PackStreamType])?
+          wb.write(fields_bytes)
+        end
 
       else
         // Don't know how to encode unmatched value

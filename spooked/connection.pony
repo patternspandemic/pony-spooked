@@ -28,14 +28,6 @@ primitive ClientBoltVersions
     consume b
 
 
-type BasicAuthToken is
-  ( String // scheme
-  , String // principal
-  , String // credentials
-  , (String | None) // realm or None
-  )
-
-
 primitive TrustAllCertificates
 primitive TrustOnFirstUse
 primitive TrustSignedCertificates
@@ -56,37 +48,42 @@ primitive RoundRobin
 
 type LoadBalanceStrategy is (LeastConnected | RoundRobin)
 
-class ConnectionSettings
+
+class _Configuration
   /* Authentication */
-  let auth': PackStreamMap //BasicAuthToken
-  let user_agent': String
-
+  var auth: PackStreamMap //BasicAuthToken
+  var user_agent: String =
+    Spooked.agent_string() + "/" + Spooked.version_string()
   /* Encryption */
-  let encrypted': Bool
-  let trust': TrustStrategy
-  let trusted_certificates': (FilePath | None)
-
+  var encrypted: Bool = true
+  var trust: TrustStrategy = TrustAllCertificates
+  var trusted_certificates: (FilePath | None) = None
   /* Connection Pool Management */
-  let max_connection_lifetime_nanos': U64 // ?
-  let max_connection_pool_size': USize
-  let connection_acquisition_timeout_nanos': U64 // ?
-
+  var max_connection_lifetime_nanos: U64 = 0
+  var max_connection_pool_size: USize = 0
+  var connection_acquisition_timeout_nanos: U64 = 0
   /* Connection Establishment */
-  let connection_timeout_nanos': U64 // ?
-
+  var connection_timeout_nanos: U64 = 0
   /* Routing */
-  // let load_balancing_strategy': ?
-
+  var load_balancing_strategy: LoadBalanceStrategy = LeastConnected
   /* Retry Behavior */
-  let max_retry_time_nanos': U64 // ?
+  var max_retry_time_nanos: U64 = 0
+  var init_request: Request
 
-  let init_request': Request
+  new create(auth': PackStreamMap, init_request': Request) =>
+    auth = auth'
+    init_request = init_request'
+
+
+class ConnectionSettings
+  let config: _Configuration
 
   new create(
     user: String,
     password: String,
     realm: (String | None) = None,
-    user_agent: String = Spooked.agent_string + "/" + Spooked.version_string,
+    user_agent: String =
+      Spooked.agent_string() + "/" + Spooked.version_string(),
     encrypted: Bool = true,
     trust: TrustStrategy = TrustAllCertificates,
     trusted_certificates: (FilePath | None) = None,
@@ -98,26 +95,44 @@ class ConnectionSettings
     max_retry_time_ms: U64 = 15_000 // 15 seconds, 0 -> no retry
     )
   =>
-    auth' = PackStreamMap
-    auth'.data("scheme") = "basic"
-    auth'.data("principal") = user
-    auth'.data("credentials") = password
+    let auth_map = PackStreamMap
+    auth_map.data("scheme") = "basic"
+    auth_map.data("principal") = user
+    auth_map.data("credentials") = password
     match realm
-    | let value: String => auth'data("realm") = value
+    | let value: String => auth_map.data("realm") = value
     end
-    user_agent' = user_agent
-    encrypted' = encrypted
-    trust' = trust
-    trusted_certificates' = trusted_certificates
-    max_connection_lifetime_nanos' =
+
+    config =
+      _Configuration(auth_map, Request(INIT.string(), InitMessage(user_agent, auth_map)))
+    // config.auth = auth_map
+    config.user_agent = user_agent
+    config.encrypted = encrypted
+    config.trust = trust
+    config.trusted_certificates = trusted_certificates
+    config.max_connection_lifetime_nanos =
       Nanos.from_millis(max_connection_lifetime_ms)
-    max_connection_pool_size' = max_connection_pool_size
-    connection_acquisition_timeout_nanos' =
+    config.max_connection_pool_size = max_connection_pool_size
+    config.connection_acquisition_timeout_nanos =
       Nanos.from_millis(connection_acquisition_timeout_ms)
-    connection_timeout_nanos' =
+    config.connection_timeout_nanos =
       Nanos.from_millis(connection_timeout_ms)
-    load_balancing_strategy' = load_balancing_strategy
-    max_retry_time_nanos' =
+    config.load_balancing_strategy = load_balancing_strategy
+    config.max_retry_time_nanos =
       Nanos.from_millis(max_retry_time_ms)
 
-    init_request = Request(INIT, [user_agent', auth'])
+    // config.init_request = Request(InitMessage(user_agent', auth'))
+
+
+class Request
+  let description: String
+  let data: (Array[U8] val | None)
+
+  new create(
+    desc: String,
+    message_structure: PackStreamStructure)
+  =>
+    description = desc
+    data =
+      try _PackStream.packed([message_structure])?
+      else None end

@@ -6,27 +6,6 @@ use "time"
 // primitive SessionExpired
 // primitive ProtocolError
 
-primitive Handshake
-  fun apply(): ByteSeq => [0x60; 0x60; 0xB0; 0x17]
-
-primitive ClientBoltVersions
-  fun apply(
-    first: U32 = 1,
-    second: U32 = 0,
-    third: U32 = 0,
-    fourth: U32 = 0)
-    : ByteSeq
-  =>
-    let b = recover iso Array[U8] end
-    let wb = Writer
-    wb .> u32_be(first) .> u32_be(second) .> u32_be(third) .> u32_be(fourth)
-
-    for chunk in wb.done().values() do
-      b.append(chunk)
-    end
-
-    consume b
-
 
 primitive TrustAllCertificates
 primitive TrustOnFirstUse
@@ -52,7 +31,6 @@ type LoadBalanceStrategy is (LeastConnected | RoundRobin)
 class _Configuration
   /* Authentication */
   var auth: PackStreamMap //BasicAuthToken
-  var protocol_version: U32 = Spooked.default_protocol_version()
   var user_agent: String =
     Spooked.agent_string() + "/" + Spooked.version_string()
   /* Encryption */
@@ -83,7 +61,6 @@ class ConnectionSettings
     user: String,
     password: String,
     realm: (String | None) = None,
-    protocol_version: U32 = Spooked.default_protocol_version(),
     user_agent: String =
       Spooked.agent_string() + "/" + Spooked.version_string(),
     encrypted: Bool = true,

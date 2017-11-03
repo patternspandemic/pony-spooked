@@ -50,3 +50,4 @@ primitive Neo4j
 primitive Spooked
   fun agent_string(): String => "pony-spooked"
   fun version_string(): String => "2017.10"
+  fun default_protocol_version(): U32 => U32(1)

@@ -52,6 +52,7 @@ type LoadBalanceStrategy is (LeastConnected | RoundRobin)
 class _Configuration
   /* Authentication */
   var auth: PackStreamMap //BasicAuthToken
+  var protocol_version: U32 = Spooked.default_protocol_version()
   var user_agent: String =
     Spooked.agent_string() + "/" + Spooked.version_string()
   /* Encryption */
@@ -82,6 +83,7 @@ class ConnectionSettings
     user: String,
     password: String,
     realm: (String | None) = None,
+    protocol_version: U32 = Spooked.default_protocol_version(),
     user_agent: String =
       Spooked.agent_string() + "/" + Spooked.version_string(),
     encrypted: Bool = true,

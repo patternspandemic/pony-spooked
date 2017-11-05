@@ -45,13 +45,6 @@ class _Handshake is TCPConnectionNotify
         " to connect to " + host + ":" + service)
     end
 
-  fun ref connected(conn: TCPConnection ref) =>
-    _logger(Info) and _logger.log(
-      "[Spooked] Info: Performing handshake...")
-    conn.write(_GoGoBolt())
-    conn.write(_ProposedProtocolVersions())
-    conn.expect(4)
-
   fun ref connect_failed(conn: TCPConnection ref) =>
     if _logger(Error) then
       (let host, let service) = conn.remote_address()
@@ -64,6 +57,13 @@ class _Handshake is TCPConnectionNotify
     // TODO: [Handshake] Handle failed auth
     None
 
+  fun ref connected(conn: TCPConnection ref) =>
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Performing handshake...")
+    conn.write(_GoGoBolt())
+    conn.write(_ProposedProtocolVersions())
+    conn.expect(4)
+
   fun ref received(
     conn: TCPConnection ref,
     data: Array[U8 val] iso,
@@ -75,13 +75,17 @@ class _Handshake is TCPConnectionNotify
     try
       let chosen_protocol_version = rb.u32_be()?
       // TODO: [Handshake] Handle received version
+      //    Perhaps determines which notifier to set next? !
     else
-      // TODO: [Handshake] Handle unexpected response?
+      // TODO: [Handshake] Couldn't negotiate protocol version.
+      //    Close connection, notify higher up? Session?
     end
     true
 
   fun ref closed(conn: TCPConnection ref) =>
     // TODO: [Handshake] Handle closed
+    //    Is this called when the client closes too?
+    None
 
   // TODO: [Handshake] Consider throttled / unthrottled handlers.
   //       Likely unneccessary for the handshake.

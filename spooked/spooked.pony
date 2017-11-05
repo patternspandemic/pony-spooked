@@ -4,12 +4,14 @@ use http = "net/http"
 
 primitive Neo4j
   fun driver(
-    url: String,
-    connection_settings: ConnectionSettings,
-    net_auth: NetAuth,
+    url: String val,
+    connection_settings: ConnectionSettings val,
+    net_auth: NetAuth val,
     logger: Logger[String] val)
-    : Driver ?
+    : Driver tag ?
   =>
+    """
+    """
     var maybe_url: (http.URL val | None) = None
 
     try
@@ -24,16 +26,12 @@ primitive Neo4j
 
     match valid_url.scheme
     | "bolt" =>
-      try
-        let net_address: NetAddress val =
-          DNS(net_auth, valid_url.host, valid_url.port.string()).apply(0)?
-        Driver(net_auth, net_address, connection_settings, logger)
-      else
-        logger(Error) and logger.log(
-          "[Spooked] Error: A net address could not be resolved for " +
-          valid_url.host)
-          error
-      end
+      Driver(
+        valid_url.host,
+        valid_url.port,
+        connection_settings,
+        net_auth,
+        logger)
 
     | "bolt+routing" =>
       logger(Error) and logger.log(

@@ -1,8 +1,6 @@
 use "logger"
 use "net"
 
-// TODO: [Driver] Logging
-
 actor Driver
   """
   Client applications that wish to interact with a Neo4j database will require
@@ -21,6 +19,7 @@ actor Driver
   let _open_sessions: Array[Session tag]
 
   new create(
+    scheme: String val,
     host: String val,
     port: U16 val,
     connection_settings': ConnectionSettings val,
@@ -43,11 +42,19 @@ actor Driver
         net_auth,
         logger)
 
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Neo4j " + scheme + "Driver created for " +
+      host + ":" + port.string())
+
   be session(notify: SessionNotify iso) =>
     """
     Generate a Session, passing it the SessionNotify object which encapsulates
     the logic required to perform the client's interaction with the database.
     """
+    let session_description = notify.description()
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Generating session - " + session_description)
+
     let session = Session(consume notify, _connection_pool, logger)
     _open_sessions.push(session)
 
@@ -55,9 +62,13 @@ actor Driver
     """
     Close all open Sessions and cached active Connections.
     """
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Closing all open Sessions and cached Connections.")
+
+    // Close all open Sessions, releasing each back to pool.
     for session in _open_sessions.values() do
-      // Close the Session, release back to pool.
       session.close()
     end
+
     // Empty pool of cached Connections.
     _connection_pool.close()

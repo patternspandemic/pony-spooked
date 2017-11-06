@@ -2,6 +2,8 @@ use "logger"
 use "net"
 use http = "net/http"
 
+// TODO: [Neo4j.driver()] Documentation
+
 primitive Neo4j
   fun driver(
     url: String val,
@@ -27,6 +29,7 @@ primitive Neo4j
     match valid_url.scheme
     | "bolt" =>
       Driver(
+        valid_url.scheme,
         valid_url.host,
         valid_url.port,
         connection_settings,

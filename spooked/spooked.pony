@@ -28,7 +28,7 @@ primitive Neo4j
 
     match valid_url.scheme
     | "bolt" =>
-      Driver(
+      Driver._create(
         valid_url.scheme,
         valid_url.host,
         valid_url.port,

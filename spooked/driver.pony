@@ -15,10 +15,10 @@ actor Driver
   that requires interaction with the database.
   """
   let _logger: Logger[String] val
-  let _connection_pool: ConnectionPool tag
+  let _connection_pool: _ConnectionPool tag
   let _open_sessions: Array[Session tag]
 
-  new create(
+  new _create(
     scheme: String val,
     host: String val,
     port: U16 val,
@@ -55,7 +55,7 @@ actor Driver
     _logger(Info) and _logger.log(
       "[Spooked] Info: Generating session - " + session_description)
 
-    let session = Session(consume notify, _connection_pool, logger)
+    let session = Session._create(consume notify, _connection_pool, logger)
     _open_sessions.push(session)
 
   be close() =>

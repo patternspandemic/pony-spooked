@@ -1,3 +1,4 @@
+use "collections"
 use "logger"
 use "net"
 
@@ -30,14 +31,17 @@ actor Driver
     """
     _logger = logger
 
-    if port == 0 then
-      port = 7687 // default bolt port
-    end
+    let port' =
+      if port == 0 then
+        7687 // default bolt port
+      else
+        port
+      end
 
     _connection_pool =
       _ConnectionPool(
         host,
-        port,
+        port',
         config,
         net_auth,
         logger)
@@ -53,16 +57,16 @@ actor Driver
     Generate a Session, passing it the SessionNotify object which encapsulates
     the logic required to perform the client's interaction with the database.
     """
-    let session_description = notify.description()
+    // let session_description = notify.description()
     _logger(Info) and _logger.log(
-      "[Spooked] Info: Generating session - " + session_description)
+      "[Spooked] Info: Generating session." /*+ session_description*/)
 
-    let session =
-      Session._create(this, consume notify, _connection_pool, logger)
-    _open_sessions.set(session)
+    let session' =
+      Session._create(this, consume notify, _connection_pool, _logger)
+    _open_sessions.set(session')
 
-  be end_session(session: Session tag) =>
-    _open_sessions.unset(session)
+  be end_session(session': Session tag) =>
+    _open_sessions.unset(session')
 
   be close() =>
     """
@@ -72,8 +76,8 @@ actor Driver
       "[Spooked] Info: Closing all open Sessions and cached Connections.")
 
     // Close all open Sessions, releasing each back to pool.
-    for session in _open_sessions.values() do
-      session.close()
+    for session' in _open_sessions.values() do
+      session'.close()
     end
     _open_sessions.clear()
 

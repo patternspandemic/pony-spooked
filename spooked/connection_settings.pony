@@ -1,3 +1,4 @@
+use "collections"
 use "files"
 use "time"
 
@@ -5,7 +6,7 @@ class val ConnectionSettings
   """
   Public side Neo4j driver configuration.
   """
-  let _config: _Configuration val
+  let _config': _Configuration val
 
   new val create(
     user: String,
@@ -24,12 +25,12 @@ class val ConnectionSettings
     max_retry_time_ms: U64 = 15_000 // 15 seconds, 0 -> no retry
     )
   =>
-    let auth_map: Map[String, String] trn
-    auth_map.data("scheme") = "basic"
-    auth_map.data("principal") = user
-    auth_map.data("credentials") = password
+    var auth_map: Map[String, String] trn = recover trn auth_map.create() end
+    auth_map("scheme") = "basic"
+    auth_map("principal") = user
+    auth_map("credentials") = password
     match realm
-    | let value: String => auth_map.data("realm") = value
+    | let value: String => auth_map("realm") = value
     end
 
     let config: _Configuration trn =
@@ -49,10 +50,10 @@ class val ConnectionSettings
     config.max_retry_time_nanos =
       Nanos.from_millis(max_retry_time_ms)
 
-    _config = consume config
+    _config' = consume config
 
   fun _config(): _Configuration val =>
-    _config
+    _config'
 
 
 class _Configuration
@@ -80,7 +81,7 @@ class _Configuration
   /* Cached INIT Request 
   var _init_request: (_Request val | None) = None */
 
-  new create(auth': Map[String, String] val) =>
+  new trn create(auth': Map[String, String] val) =>
     auth = auth'
 
 /*

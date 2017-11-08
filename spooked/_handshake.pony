@@ -33,18 +33,20 @@ primitive _ProposedProtocolVersions
 
 class _Handshake is TCPConnectionNotify
   let _logger: Logger[String] val
-  let _connection: _Connection
+  let _connection: _Connection tag
 
-  new iso create(connection: _Connection, logger: Logger[String] val) =>
+  new iso create(connection: _Connection tag, logger: Logger[String] val) =>
     _connection = connection
     _logger = logger
 
   fun ref connecting(conn: TCPConnection ref, count: U32) =>
-    if _logger(Info) then
-      (let host, let service) = conn.remote_address()
-      _logger.log(
-        "[Spooked] Info: Attempt" +"(" + count.string() + ")" +
-        " to connect to " + host + ":" + service)
+    try
+      if _logger(Info) then
+        (let host, let service) = conn.remote_address().name()?
+        _logger.log(
+          "[Spooked] Info: Attempt" +"(" + count.string() + ")" +
+          " to connect to " + host + ":" + service)
+      end
     end
 
   fun ref connect_failed(conn: TCPConnection ref) =>
@@ -98,7 +100,7 @@ class _Handshake is TCPConnectionNotify
           "[Spooked] Info: Agreed upon Bolt v" +
           chosen_protocol_version.string())
 
-        _connection.handshook(chosen_protocol_version)
+        _connection._handshook(chosen_protocol_version)
 
       | let unsupported_version: U32
       =>

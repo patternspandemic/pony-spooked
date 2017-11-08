@@ -6,6 +6,9 @@ use "net"
 interface SessionNotify
   """Notifications for Neo4j Bolt Sessions"""
   // TODO: [SessionNotify]
+
+  fun ref apply(session: Session tag): None
+
   //    apply
   //    service_unavailable
   //    
@@ -14,7 +17,7 @@ actor Session
   let _driver: Driver tag
   let _notify: SessionNotify
   let _connection_pool: _ConnectionPool tag
-  var _connection: (_Connection iso | None) = None
+  var _connection: (_Connection tag /*iso*/ | None) = None
   let _logger: Logger[String] val
 
   new _create(
@@ -35,10 +38,12 @@ actor Session
     _connection_pool.acquire(this)
 
   be _receive_connection(
-    connection: _Connection iso,
+    // connection: _Connection iso,
+    connection: _Connection tag,
     go_ahead: Bool)
   =>
-    _connection = consume connection
+    // _connection = consume connection
+    _connection = connection
     if go_ahead then
       _go_ahead()
     end
@@ -55,6 +60,7 @@ actor Session
   // be reset()
 
   be _error(err: _ConnectionError) =>
+    """"""
     // match err
     // | ...
     // end
@@ -63,4 +69,6 @@ actor Session
     _connection = None
     _driver.end_session(this)
 
-  // be close()
+  be close() =>
+    """"""
+    // TODO: [Session] close

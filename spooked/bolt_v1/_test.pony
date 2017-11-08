@@ -44,10 +44,6 @@ actor Main is TestList
     // test(_TestServerMessageFailure)
     // test(_TestServerMessageIgnored)
 
-    // Test handshake
-    test(_TestHandshakePreamble)
-    test(_TestHandshakeClientBoltVersions)
-
 
 class iso _TestPackStreamH is UnitTest
   fun name(): String => "PackStreamH"
@@ -582,22 +578,3 @@ _TestServerMessageSuccess
 _TestServerMessageFailure
 _TestServerMessageIgnored
 */
-
-class iso _TestHandshakePreamble is UnitTest
-  fun name(): String => "HandshakePreamble"
-
-  fun apply(h: TestHelper) =>
-    h.assert_eq[String](
-      "60:60:B0:17",
-      _PackStream.h(Handshake()))
-
-class iso _TestHandshakeClientBoltVersions is UnitTest
-  fun name(): String => "HandshakeClientBoltVersions"
-
-  fun apply(h: TestHelper) =>
-    h.assert_eq[String](
-      "00:00:00:01:00:00:00:00:00:00:00:00:00:00:00:00",
-      _PackStream.h(ClientBoltVersions()))
-    h.assert_eq[String](
-      "00:00:00:04:00:00:00:03:00:00:00:02:00:00:00:01",
-      _PackStream.h(ClientBoltVersions(4, 3, 2, 1)))

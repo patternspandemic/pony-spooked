@@ -16,7 +16,7 @@ actor Driver
   """
   let _logger: Logger[String] val
   let _connection_pool: _ConnectionPool tag
-  let _open_sessions: Array[Session tag]
+  let _open_sessions: SetIs[Session tag]
 
   new _create(
     scheme: String val,
@@ -42,6 +42,8 @@ actor Driver
         net_auth,
         logger)
 
+    _open_sessions = _open_sessions.create()
+
     _logger(Info) and _logger.log(
       "[Spooked] Info: Neo4j " + scheme + "Driver created for " +
       host + ":" + port.string())
@@ -55,8 +57,12 @@ actor Driver
     _logger(Info) and _logger.log(
       "[Spooked] Info: Generating session - " + session_description)
 
-    let session = Session._create(consume notify, _connection_pool, logger)
-    _open_sessions.push(session)
+    let session =
+      Session._create(this, consume notify, _connection_pool, logger)
+    _open_sessions.set(session)
+
+  be end_session(session: Session tag) =>
+    _open_sessions.unset(session)
 
   be close() =>
     """
@@ -69,6 +75,7 @@ actor Driver
     for session in _open_sessions.values() do
       session.close()
     end
+    _open_sessions.clear()
 
     // Empty pool of cached Connections.
     _connection_pool.close()

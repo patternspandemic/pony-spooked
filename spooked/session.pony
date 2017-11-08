@@ -11,18 +11,21 @@ interface SessionNotify
   //    
 
 actor Session
+  let _driver: Driver tag
   let _notify: SessionNotify
   let _connection_pool: _ConnectionPool tag
   var _connection: (_Connection iso | None) = None
   let _logger: Logger[String] val
 
   new _create(
+    driver: Driver tag,
     notify: SessionNotify iso,
     connection_pool: _ConnectionPool tag,
     logger: Logger[String] val)
   =>
     """
     """
+    _driver = driver
     _notify = consume notify
     _connection_pool = connection_pool
     _logger = logger
@@ -50,4 +53,14 @@ actor Session
   // fun ref write_transaction()
 
   // be reset()
+
+  be _error(err: _ConnectionError) =>
+    // match err
+    // | ...
+    // end
+
+  be _closed() =>
+    _connection = None
+    _driver.end_session(this)
+
   // be close()

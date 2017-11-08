@@ -2,9 +2,17 @@ use "collections"
 use "net"
 use "net/ssl"
 
-// primitive ServiceUnavailable
-// primitive SessionExpired
-// primitive ProtocolError
+primitive ServiceUnavailable
+primitive SessionExpired
+primitive ProtocolError
+primitive UnsupportedProtocolVersion
+
+type _ConnectionError is
+  ( ServiceUnavailable
+  | SessionExpired
+  | ProtocolError
+  | UnsupportedProtocolVersion
+  )
 
 
 actor _ConnectionPool
@@ -74,41 +82,45 @@ class _Connection
 
   fun _connect_failed() =>
     match _session
-    | let s: Session => s._connect_failed()
+    | let s: Session => s._error(ServiceUnavailable)
     end
 
-  fun _auth_failed() =>
-    match _session
-    | let s: Session => s._auth_failed()
-    end
+  // fun _auth_failed() =>
+  //   match _session
+  //   | let s: Session => s._auth_failed()
+  //   end
 
   fun _protocol_error() =>
     match _session
-    | let s: Session => s._protocol_error()
+    | let s: Session => s._error(ProtocolError)
     end
 
   fun _version_negotiation_failed() =>
     // TODO: [_Connection] Cleanup? Server closes connection,
     //    Likely will get callbakc to _closed
     match _session
-    | let s: Session => s._version_negotiation_failed()
+    | let s: Session => s._error(UnsupportedProtocolVersion)
     end
 
   fun _unsupported_version(unsupported_version: U32) =>
     // TODO: [_Connection] Likely shouldn't happen, but need to close down
     //    as server won't close connection in this case. Call manually.
     match _session
-    | let s: Session => s._unsupported_version(unsupported_version)
+    | let s: Session => s._error(ProtocolError)
     end
 
   fun _handshook(version: U32) =>
     // TODO: [_Connection] Change TCP notify based on version
+    //    Setup _conn details from config?
     match _session
     | let s: Session => s._go_ahead()
     end
 
   fun _closed() =>
-    // TODO: [_Connection] Handle closed..
+    _conn = None
+    match _session
+    | let s: Session => s._closed()
+    end
 
   fun ref _set_session(session: Session) =>
     if _session is None then

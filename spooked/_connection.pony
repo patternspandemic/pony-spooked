@@ -53,10 +53,10 @@ actor _ConnectionPool
       session._receive_connection(/*consume*/ connection, false)
     end
 
-  be close() =>
+  be dispose() =>
     """"""
     for connection in _connections.values() do
-      connection.close()
+      connection.dispose()
     end
     _connections.clear()
 
@@ -143,7 +143,7 @@ actor _Connection
   be _clear_session() =>
     _session = None
 
-  be close() =>
+  be dispose() =>
     match _conn
     | let c: TCPConnection => c.dispose()
     end

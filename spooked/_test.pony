@@ -11,10 +11,24 @@ actor Main is TestList
   fun tag tests(test: PonyTest) =>
     bolt_v1.Main.make().tests(test)
 
+    // test(_BasicIntegration)
+
     // TODO: Redo Test handshake, etc
     // test(_TestHandshakePreamble)
     // test(_TestHandshakeClientBoltVersions)
 
+/*
+class iso _BasicIntegration is UnitTest
+  fun name(): String => "BasicIntegration"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+
+    h.dispose_when_done the driver
+    h.expect_action
+      h.complete_action
+      h.fail_action
+*/
 
 /*
 class iso _TestHandshakePreamble is UnitTest

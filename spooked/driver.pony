@@ -65,10 +65,13 @@ actor Driver
       Session._create(this, consume notify, _connection_pool, _logger)
     _open_sessions.set(session')
 
-  be end_session(session': Session tag) =>
+  be _end_session(session': Session tag) =>
     _open_sessions.unset(session')
 
-  be close() =>
+  be dispose() =>
+    close()
+
+  fun ref close() =>
     """
     Close all open Sessions and cached active Connections.
     """
@@ -77,9 +80,9 @@ actor Driver
 
     // Close all open Sessions, releasing each back to pool.
     for session' in _open_sessions.values() do
-      session'.close()
+      session'.dispose()
     end
     _open_sessions.clear()
 
     // Empty pool of cached Connections.
-    _connection_pool.close()
+    _connection_pool.dispose()

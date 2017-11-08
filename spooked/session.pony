@@ -67,8 +67,8 @@ actor Session
 
   be _closed() =>
     _connection = None
-    _driver.end_session(this)
+    _driver._end_session(this)
 
-  be close() =>
+  be dispose() =>
     """"""
-    // TODO: [Session] close
+    // TODO: [Session] dispose

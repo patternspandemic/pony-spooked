@@ -32,7 +32,7 @@ primitive Neo4j
         valid_url.scheme,
         valid_url.host,
         valid_url.port,
-        connection_settings,
+        connection_settings._config(),
         net_auth,
         logger)
 

@@ -22,7 +22,7 @@ actor Driver
     scheme: String val,
     host: String val,
     port: U16 val,
-    connection_settings': ConnectionSettings val,
+    config: _Configuration val,
     net_auth: NetAuth val,
     logger: Logger[String] val)
   =>
@@ -35,10 +35,10 @@ actor Driver
     end
 
     _connection_pool =
-      ConnectionPool(
+      _ConnectionPool(
         host,
         port,
-        connection_settings,
+        config,
         net_auth,
         logger)
 

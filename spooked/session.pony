@@ -6,12 +6,14 @@ use "net"
 interface SessionNotify
   """Notifications for Neo4j Bolt Sessions"""
   // TODO: [SessionNotify]
-
+  //    apply
+  //    service_unavailable
+  //    
 
 actor Session
   let _notify: SessionNotify
   let _connection_pool: _ConnectionPool tag
-  let _connection: (_Connection iso | None) = None
+  var _connection: (_Connection iso | None) = None
   let _logger: Logger[String] val
 
   new _create(
@@ -25,12 +27,20 @@ actor Session
     _connection_pool = connection_pool
     _logger = logger
 
+    // TODO: [Session] Set timeout waiting for a connection. If time out then
+    //    call _notify.service_unavailable?
     _connection_pool.acquire(this)
 
-  // TODO: [Session]
-
-  be _receive_connection(connection: _Connection iso) =>
+  be _receive_connection(
+    connection: _Connection iso,
+    go_ahead: Bool)
+  =>
     _connection = consume connection
+    if go_ahead then
+      _go_ahead()
+    end
+
+  be _go_ahead() =>
     _notify(this)
 
   // fun ref run()

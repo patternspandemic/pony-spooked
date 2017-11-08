@@ -33,8 +33,10 @@ primitive _ProposedProtocolVersions
 
 class _Handshake is TCPConnectionNotify
   let _logger: Logger[String] val
+  let _connection: _Connection
 
-  new create(logger: Logger[String] val) =>
+  new iso create(connection: _Connection, logger: Logger[String] val) =>
+    _connection = connection
     _logger = logger
 
   fun ref connecting(conn: TCPConnection ref, count: U32) =>
@@ -46,15 +48,15 @@ class _Handshake is TCPConnectionNotify
     end
 
   fun ref connect_failed(conn: TCPConnection ref) =>
-    if _logger(Error) then
-      (let host, let service) = conn.remote_address()
-      _logger.log(
+    _logger(Error) and _logger.log(
         "[Spooked] Error: Could not establish connection to server.")
-    end
-    // ... TODO: [Handshake] Handle failed connect
+    _connection._connect_failed()
 
   fun ref auth_failed(conn: TCPConnection ref) =>
     // TODO: [Handshake] Handle failed auth
+    // _logger(Error) and _logger.log(
+    //     "[Spooked] Error: Could not establish authorization with server.")
+    // _connection._auth_failed()
     None
 
   fun ref connected(conn: TCPConnection ref) =>
@@ -72,20 +74,47 @@ class _Handshake is TCPConnectionNotify
   =>
     let rb = Reader
     rb.append(consume data)
+
     try
       let chosen_protocol_version = rb.u32_be()?
-      // TODO: [Handshake] Handle received version
-      //    Perhaps determines which notifier to set next? !
+
+      match chosen_protocol_version
+      | _ProtocolVersionNone()
+      =>
+        // Server doesn't support any preferred protocol version.
+        // The server should be closing the connection.
+        _logger(Error) and _logger.log(
+          "[Spooked] Error: No preferred protocol version supported.")
+
+        _connection._version_negotiation_failed()
+
+      | _PreferredProtocolVersions.first()
+      | _PreferredProtocolVersions.second()
+      | _PreferredProtocolVersions.third()
+      | _PreferredProtocolVersions.forth()
+      =>
+        // One of the preferred protocol versions was supported by the server.
+        _logger(Info) and _logger.log(
+          "[Spooked] Info: Agreed upon Bolt v" +
+          chosen_protocol_version.string())
+
+        _connection.handshook(chosen_protocol_version)
+
+      | let unsupported_version: U32
+      =>
+        // Odd, the server wants to use a version we didn't suggest.
+        _logger(Error) and _logger.log(
+          "[Spooked] Error: Server requesting unsupported Bolt v" +
+          chosen_protocol_version.string())
+
+        _connection._unsupported_version(unsupported_version)
+        // TODO: [Handshake] Close conn? or let _connection do it?
+      end
     else
-      // TODO: [Handshake] Couldn't negotiate protocol version.
-      //    Close connection, notify higher up? Session?
+      // Server sent us something unexpected.
+      _connection._protocol_error()
     end
-    true
+    false
 
   fun ref closed(conn: TCPConnection ref) =>
-    // TODO: [Handshake] Handle closed
-    //    Is this called when the client closes too?
-    None
-
-  // TODO: [Handshake] Consider throttled / unthrottled handlers.
-  //       Likely unneccessary for the handshake.
+    _connection._closed()

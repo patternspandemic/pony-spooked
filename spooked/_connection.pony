@@ -1,117 +1,119 @@
-use "buffered"
-use "files"
-use "time"
+use "collections"
+use "net"
+use "net/ssl"
 
 // primitive ServiceUnavailable
 // primitive SessionExpired
 // primitive ProtocolError
 
 
-primitive TrustAllCertificates
-primitive TrustOnFirstUse
-primitive TrustSignedCertificates
-primitive TrustCustomCASignedCertificates
-primitive TrustSystemCASignedCertificates
-
-type TrustStrategy is
-  ( TrustAllCertificates
-  | TrustOnFirstUse
-  | TrustSignedCertificates
-  | TrustCustomCASignedCertificates
-  | TrustSystemCASignedCertificates
-  )
-
-
-primitive LeastConnected
-primitive RoundRobin
-
-type LoadBalanceStrategy is (LeastConnected | RoundRobin)
-
-
-class _Configuration
-  /* Authentication */
-  var auth: PackStreamMap //BasicAuthToken
-  var user_agent: String =
-    Spooked.agent_string() + "/" + Spooked.version_string()
-  /* Encryption */
-  var encrypted: Bool = true
-  var trust: TrustStrategy = TrustAllCertificates
-  var trusted_certificates: (FilePath | None) = None
-  /* Connection Pool Management */
-  var max_connection_lifetime_nanos: U64 = 0
-  var max_connection_pool_size: USize = 0
-  var connection_acquisition_timeout_nanos: U64 = 0
-  /* Connection Establishment */
-  var connection_timeout_nanos: U64 = 0
-  /* Routing */
-  var load_balancing_strategy: LoadBalanceStrategy = LeastConnected
-  /* Retry Behavior */
-  var max_retry_time_nanos: U64 = 0
-  var init_request: Request
-
-  new create(auth': PackStreamMap, init_request': Request) =>
-    auth = auth'
-    init_request = init_request'
-
-
-class ConnectionSettings
-  let config: _Configuration
+actor _ConnectionPool
+  let _logger: Logger[String] val
+  let _net_auth: NetAuth val
+  let _config: _Configuration val
+  let _host: String val
+  let _port: String val
+  let _connections: Array[_Connection iso]
 
   new create(
-    user: String,
-    password: String,
-    realm: (String | None) = None,
-    user_agent: String =
-      Spooked.agent_string() + "/" + Spooked.version_string(),
-    encrypted: Bool = true,
-    trust: TrustStrategy = TrustAllCertificates,
-    trusted_certificates: (FilePath | None) = None,
-    max_connection_lifetime_ms: U64 = 3_600_000, // 1 hour
-    max_connection_pool_size: USize = 0, // no limit
-    connection_acquisition_timeout_ms: U64 = 60_000, // 1 minute
-    connection_timeout_ms: U64 = 0, // no timeout
-    load_balancing_strategy: LoadBalanceStrategy = LeastConnected,
-    max_retry_time_ms: U64 = 15_000 // 15 seconds, 0 -> no retry
-    )
+    host: String val,
+    port: U16 val,
+    config: _Configuration val,
+    net_auth: NetAuth val,
+    logger: Logger[String] val)
   =>
-    let auth_map = PackStreamMap
-    auth_map.data("scheme") = "basic"
-    auth_map.data("principal") = user
-    auth_map.data("credentials") = password
-    match realm
-    | let value: String => auth_map.data("realm") = value
+    _logger = logger
+    _net_auth = net_auth
+    _config = config
+    _host = host
+    _port = port.string()
+    _connections = Array[_Connection].create()
+
+  be acquire(session: Session tag) =>
+    """Send a _Connection to session."""
+    try
+      let connection: _Connection iso = _connections.shift()?
+      connection._set_session(session)
+      session._receive_connection(consume connection, true)
+    else
+      let connection: _Connection iso =
+        _Connection(session, _host, _port, _config, _net_auth, _logger)
+      session._receive_connection(consume connection, false)
     end
 
-    config =
-      _Configuration(auth_map, Request(INIT.string(), InitMessage(user_agent, auth_map)))
-    // config.auth = auth_map
-    config.user_agent = user_agent
-    config.encrypted = encrypted
-    config.trust = trust
-    config.trusted_certificates = trusted_certificates
-    config.max_connection_lifetime_nanos =
-      Nanos.from_millis(max_connection_lifetime_ms)
-    config.max_connection_pool_size = max_connection_pool_size
-    config.connection_acquisition_timeout_nanos =
-      Nanos.from_millis(connection_acquisition_timeout_ms)
-    config.connection_timeout_nanos =
-      Nanos.from_millis(connection_timeout_ms)
-    config.load_balancing_strategy = load_balancing_strategy
-    config.max_retry_time_nanos =
-      Nanos.from_millis(max_retry_time_ms)
 
-    // config.init_request = Request(InitMessage(user_agent', auth'))
+class _Connection
+  let _logger: Logger[String] val
+  let _net_auth: NetAuth val
+  let _config: _Configuration val
+  let _host: String val
+  let _port: String val
+  // var _ssl_context: (SSLContext | None) = None
+  var _conn: (TCPConnection | None) = None
+  var _session: (Session tag | None) = None
 
-
-class Request
-  let description: String
-  let data: (Array[U8] val | None)
-
-  new create(
-    desc: String,
-    message_structure: PackStreamStructure)
+  new iso create(
+    session: Session tag,
+    host: String val,
+    port: String val,
+    config: _Configuration val,
+    net_auth: NetAuth val,
+    logger: Logger[String] val)
   =>
-    description = desc
-    data =
-      try _PackStream.packed([message_structure])?
-      else None end
+    _logger = logger
+    _net_auth = net_auth
+    _config = config
+    _session = session
+    _host = host
+    _port = port
+    _conn =
+      TCPConnection(
+        _net_auth,
+        _Handshake(this, _logger),
+        _host, _port)
+
+  fun _connect_failed() =>
+    match _session
+    | let s: Session => s._connect_failed()
+    end
+
+  fun _auth_failed() =>
+    match _session
+    | let s: Session => s._auth_failed()
+    end
+
+  fun _protocol_error() =>
+    match _session
+    | let s: Session => s._protocol_error()
+    end
+
+  fun _version_negotiation_failed() =>
+    // TODO: [_Connection] Cleanup? Server closes connection,
+    //    Likely will get callbakc to _closed
+    match _session
+    | let s: Session => s._version_negotiation_failed()
+    end
+
+  fun _unsupported_version(unsupported_version: U32) =>
+    // TODO: [_Connection] Likely shouldn't happen, but need to close down
+    //    as server won't close connection in this case. Call manually.
+    match _session
+    | let s: Session => s._unsupported_version(unsupported_version)
+    end
+
+  fun _handshook(version: U32) =>
+    // TODO: [_Connection] Change TCP notify based on version
+    match _session
+    | let s: Session => s._go_ahead()
+    end
+
+  fun _closed() =>
+    // TODO: [_Connection] Handle closed..
+
+  fun ref _set_session(session: Session) =>
+    if _session is None then
+      _session = session
+    end
+
+  fun ref _clear_session() =>
+    _session = None

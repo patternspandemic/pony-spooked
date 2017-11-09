@@ -18,6 +18,7 @@ actor Session
   let _notify: SessionNotify
   let _connection_pool: _ConnectionPool tag
   var _connection: (_Connection tag /*iso*/ | None) = None
+  var _release_on_reset: Bool = false
   let _logger: Logger[String] val
 
   new _create(
@@ -69,6 +70,24 @@ actor Session
     _connection = None
     _driver._end_session(this)
 
+  be reset() =>
+    match _connection
+    | let c: _Connection tag =>
+      c.reset()
+    end
+
+  be _successfully_reset(connection: _Connection tag) =>
+    if _release_on_reset then
+      _connection_pool.release(connection)
+    end
+
   be dispose() =>
     """"""
     // TODO: [Session] dispose
+    match _connection
+    | let c: _Connection tag =>
+      c.reset()
+      _release_on_reset = true
+      _connection = None
+    end
+    _driver._end_session(this)

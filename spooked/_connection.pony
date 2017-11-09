@@ -53,6 +53,12 @@ actor _ConnectionPool
       session._receive_connection(/*consume*/ connection, false)
     end
 
+  be release(connection: _Connection tag) =>
+    """Accept the released reset connection back into the pool."""
+    if not _connections.contains(connection) then
+      _connections.push(connection)
+    end
+
   be dispose() =>
     """"""
     for connection in _connections.values() do
@@ -142,6 +148,14 @@ actor _Connection
 
   be _clear_session() =>
     _session = None
+
+  be reset() => """"""
+    // TODO: [_Connection] Somehow reset the underlying _conn via the notify?
+
+  be _successfully_reset() =>
+    match _session
+    | let s: Session tag => s._successfully_reset(this)
+    end
 
   be dispose() =>
     match _conn

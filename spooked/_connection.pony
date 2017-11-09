@@ -24,6 +24,7 @@ actor _ConnectionPool
   let _port: String val
   // let _connections: Array[_Connection iso]
   let _connections: Array[_Connection tag]
+  var _drained: Bool = false
 
   new create(
     host: String val,
@@ -55,8 +56,13 @@ actor _ConnectionPool
 
   be release(connection: _Connection tag) =>
     """Accept the released reset connection back into the pool."""
-    if not _connections.contains(connection) then
-      _connections.push(connection)
+    connection._clear_session()
+    if not _drained then
+      if not _connections.contains(connection) then
+        _connections.push(connection)
+      end
+    else
+      connection.dispose()
     end
 
   be dispose() =>
@@ -65,6 +71,7 @@ actor _ConnectionPool
       connection.dispose()
     end
     _connections.clear()
+    _drained = true
 
 
 // class _Connection
@@ -150,7 +157,8 @@ actor _Connection
     _session = None
 
   be reset() => """"""
-    // TODO: [_Connection] Somehow reset the underlying _conn via the notify?
+    // TODO: [_Connection] Somehow reset the underlying _conn via the versioned bolt notify?
+    _successfully_reset() // TODO: Remove after implement!
 
   be _successfully_reset() =>
     match _session

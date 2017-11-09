@@ -46,13 +46,15 @@ actor Main is TestList
 
 
 class iso _TestPackStreamH is UnitTest
-  fun name(): String => "PackStreamH"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/h"
 
   fun apply(h: TestHelper) =>
     h.assert_eq[String]("03:41:7E", _PackStream.h("\x03A~"))
 
 class iso _TestPackStreamPackedNone is UnitTest
-  fun name(): String => "PackStreamPackedNone"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/None"
 
   fun apply(h: TestHelper) ? =>
     h.assert_eq[String](
@@ -61,7 +63,8 @@ class iso _TestPackStreamPackedNone is UnitTest
         _PackStream.packed([None])?))
 
 class iso _TestPackStreamUnpackedNone is UnitTest
-  fun name(): String => "PackStreamUnpackedNone"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/None"
 
   fun apply(h: TestHelper) ? =>
     var value = PackStreamNull
@@ -70,7 +73,8 @@ class iso _TestPackStreamUnpackedNone is UnitTest
     h.assert_eq[PackStreamNull](value, unpkd)
 
 class iso _TestPackStreamPackedBoolean is UnitTest
-  fun name(): String => "PackStreamPackedBoolean"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/Boolean"
 
   fun apply(h: TestHelper) ? =>
     h.assert_eq[String](
@@ -83,7 +87,8 @@ class iso _TestPackStreamPackedBoolean is UnitTest
         _PackStream.packed([true])?))
 
 class iso _TestPackStreamUnpackedBoolean is UnitTest
-  fun name(): String => "PackStreamUnpackedBoolean"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/Boolean"
 
   fun apply(h: TestHelper) ? =>
     for value in [
@@ -96,7 +101,8 @@ class iso _TestPackStreamUnpackedBoolean is UnitTest
     end
 
 class iso _TestPackStreamPackedInteger is UnitTest
-  fun name(): String => "PackStreamPackedInteger"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/Integer"
 
   fun apply(h: TestHelper) ? =>
 
@@ -181,7 +187,8 @@ class iso _TestPackStreamPackedInteger is UnitTest
         _PackStream.packed([I64(9_223_372_036_854_775_807)])?))
 
 class iso _TestPackStreamUnpackedInteger is UnitTest
-  fun name(): String => "PackStreamUnpackedInteger"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/Integer"
 
   fun apply(h: TestHelper) ? =>
     for value in [
@@ -208,7 +215,8 @@ class iso _TestPackStreamUnpackedInteger is UnitTest
     end
 
 class iso _TestPackStreamPackedFloat is UnitTest
-  fun name(): String => "PackStreamPackedFloat"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/Float"
 
   fun apply(h: TestHelper) ? =>
     h.assert_eq[String](
@@ -221,7 +229,8 @@ class iso _TestPackStreamPackedFloat is UnitTest
         _PackStream.packed([F64(-1.1)])?))
 
 class iso _TestPackStreamUnpackedFloat is UnitTest
-  fun name(): String => "PackStreamUnpackedFloat"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/Float"
 
   fun apply(h: TestHelper) ? =>
     for value in [
@@ -234,7 +243,8 @@ class iso _TestPackStreamUnpackedFloat is UnitTest
     end
 
 class iso _TestPackStreamPackedString is UnitTest
-  fun name(): String => "PackStreamPackedString"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/String"
 
   fun apply(h: TestHelper) ? =>
     h.assert_eq[String](
@@ -255,7 +265,8 @@ class iso _TestPackStreamPackedString is UnitTest
         _PackStream.packed(["Größenmaßstäbe"])?))
 
 class iso _TestPackStreamUnpackedString is UnitTest
-  fun name(): String => "PackStreamUnpackedString"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/String"
 
   fun apply(h: TestHelper) ? =>
     for value in [
@@ -270,7 +281,8 @@ class iso _TestPackStreamUnpackedString is UnitTest
     end
 
 class iso _TestPackStreamPackedList is UnitTest
-  fun name(): String => "PackStreamPackedList"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/List"
 
   fun apply(h: TestHelper) ? =>
     var list = PackStreamList
@@ -306,7 +318,8 @@ class iso _TestPackStreamPackedList is UnitTest
         _PackStream.packed([list])?))
 
 class iso _TestPackStreamUnpackedList is UnitTest
-  fun name(): String => "PackStreamUnpackedList"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/List"
 
   fun apply(h: TestHelper) ? =>
     var value: PackStreamList
@@ -336,7 +349,8 @@ class iso _TestPackStreamUnpackedList is UnitTest
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
 
 class iso _TestPackStreamPackedMap is UnitTest
-  fun name(): String => "PackStreamPackedMap"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/Map"
 
   fun apply(h: TestHelper) ? =>
     var map = PackStreamMap
@@ -374,7 +388,8 @@ class iso _TestPackStreamPackedMap is UnitTest
     end
 
 class iso _TestPackStreamUnpackedMap is UnitTest
-  fun name(): String => "PackStreamUnpackedMap"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/Map"
 
   fun apply(h: TestHelper) ? =>
     var map: PackStreamMap
@@ -438,7 +453,8 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     end
 
 class iso _TestPackStreamPackedStructure is UnitTest
-  fun name(): String => "PackStreamPackedStructure"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/packed/Structure"
 
   fun apply(h: TestHelper) ? =>
     var structure: PackStreamStructure
@@ -469,7 +485,8 @@ class iso _TestPackStreamPackedStructure is UnitTest
         _PackStream.packed([structure])?))
 
 class iso _TestPackStreamUnpackedStructure is UnitTest
-  fun name(): String => "PackStreamUnpackedStructure"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/_PackStream/unpacked/Structure"
 
   fun apply(h: TestHelper) ? =>
     var value: PackStreamStructure
@@ -497,7 +514,8 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
 
 class iso _TestClientMessageInit is UnitTest
-  fun name(): String => "ClientMessageInit"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/messages/client/InitMessage"
 
   fun apply(h: TestHelper) ? =>
     let user_agent: String = "MyClient/1.0"
@@ -520,7 +538,8 @@ class iso _TestClientMessageInit is UnitTest
     end
 
 class iso _TestClientMessageRun is UnitTest
-  fun name(): String => "ClientMessageRun"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/messages/client/RunMessage"
 
   fun apply(h: TestHelper) ? =>
     let statement: String = "RETURN 1 AS num"
@@ -533,7 +552,8 @@ class iso _TestClientMessageRun is UnitTest
       _PackStream.h(pkd))
 
 class iso _TestClientMessageDiscardAll is UnitTest
-  fun name(): String => "ClientMessageDiscardAll"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/messages/client/DiscardAllMessage"
 
   fun apply(h: TestHelper) ? =>
     let msg_struct = DiscardAllMessage()
@@ -543,7 +563,8 @@ class iso _TestClientMessageDiscardAll is UnitTest
       _PackStream.h(pkd))
 
 class iso _TestClientMessagePullAll is UnitTest
-  fun name(): String => "ClientMessagePullAll"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/messages/client/PullAllMessage"
 
   fun apply(h: TestHelper) ? =>
     let msg_struct = PullAllMessage()
@@ -553,7 +574,8 @@ class iso _TestClientMessagePullAll is UnitTest
       _PackStream.h(pkd))
 
 class iso _TestClientMessageAckFailure is UnitTest
-  fun name(): String => "ClientMessageAckFailure"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/messages/client/AckFailureMessage"
 
   fun apply(h: TestHelper) ? =>
     let msg_struct = AckFailureMessage()
@@ -563,7 +585,8 @@ class iso _TestClientMessageAckFailure is UnitTest
       _PackStream.h(pkd))
 
 class iso _TestClientMessageReset is UnitTest
-  fun name(): String => "ClientMessageReset"
+  fun name(): String =>
+    "spooked/bolt/v1/serialization/messages/client/ResetMessage"
 
   fun apply(h: TestHelper) ? =>
     let msg_struct = ResetMessage()

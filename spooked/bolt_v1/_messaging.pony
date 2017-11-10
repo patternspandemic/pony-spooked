@@ -6,8 +6,8 @@ primitive INIT
 primitive InitMessage
   fun apply(
     client_name: String,
-    auth_token: PackStreamMap)
-    : PackStreamStructure
+    auth_token: PackStreamMap val)
+    : PackStreamStructure val
   =>
     PackStreamStructure(INIT(), [client_name; auth_token])
 
@@ -19,8 +19,8 @@ primitive RUN
 primitive RunMessage
   fun apply(
     statement: String,
-    parameters: PackStreamMap)
-    : PackStreamStructure
+    parameters: PackStreamMap val)
+    : PackStreamStructure val
   =>
     PackStreamStructure(RUN(), [statement; parameters])
 
@@ -30,7 +30,7 @@ primitive DISCARDALL
   fun string(): String => "DISCARD_ALL"
 
 primitive DiscardAllMessage
-  fun apply(): PackStreamStructure =>
+  fun apply(): PackStreamStructure val =>
     PackStreamStructure(DISCARDALL())
 
 
@@ -39,7 +39,7 @@ primitive PULLALL
   fun string(): String => "PULL_ALL"
 
 primitive PullAllMessage
-  fun apply(): PackStreamStructure =>
+  fun apply(): PackStreamStructure val =>
     PackStreamStructure(PULLALL())
 
 
@@ -48,7 +48,7 @@ primitive ACKFAILURE
   fun string(): String => "ACKFAILURE"
 
 primitive AckFailureMessage
-  fun apply(): PackStreamStructure =>
+  fun apply(): PackStreamStructure val =>
     PackStreamStructure(ACKFAILURE())
 
 
@@ -57,7 +57,7 @@ primitive RESET
   fun string(): String => "RESET"
 
 primitive ResetMessage
-  fun apply(): PackStreamStructure =>
+  fun apply(): PackStreamStructure val =>
     PackStreamStructure(RESET())
 
 

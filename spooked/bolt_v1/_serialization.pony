@@ -3,6 +3,8 @@ use "collections"
 use "format"
 use "itertools"
 
+// TODO: Privatize types.
+
 type PackStreamType is
   ( PackStreamNull // absence of value
   | PackStreamBoolean // true or false
@@ -26,46 +28,54 @@ type PackStreamStructure is _PackStreamStructure
 
 
 class _PackStreamList
-  var data: Array[PackStreamType]
+  var data: Array[PackStreamType val] val
 
-  new create(length: USize = 0) =>
-    data = Array[PackStreamType](length)
+  // new trn create(length: USize = 0) =>
+  //   data = Array[PackStreamType val](length)
 
-  new from_array(data': Array[PackStreamType]) =>
+  // new val from_array(data': Array[PackStreamType val] val) =>
+  new val create(data': Array[PackStreamType val] val) =>
     data = data'
 
-  fun ref _hashed_packed(): U64 ? =>
+  // fun ref _hashed_packed(): U64 ? =>
+  fun val _hashed_packed(): U64 ? =>
     HashByteSeq.hash(_PackStream.packed([this])?)
 
 
 class _PackStreamMap
-  var data: MapIs[PackStreamType, PackStreamType]
+  var data: MapIs[PackStreamType val, PackStreamType val] val
 
-  new create(prealloc: USize = 6) =>
-    data = MapIs[PackStreamType, PackStreamType](prealloc)
+  // new trn create(prealloc: USize = 6) =>
+  //   data = MapIs[PackStreamType val, PackStreamType val](prealloc)
 
-  new from_map(data': MapIs[PackStreamType, PackStreamType]) =>
+  // new val from_map(data': MapIs[PackStreamType val, PackStreamType val] val) =>
+  new val create(data': MapIs[PackStreamType val, PackStreamType val] val) =>
     data = data'
 
-  fun ref _hashed_packed(): U64 ? =>
+  // fun ref _hashed_packed(): U64 ? =>
+  fun val _hashed_packed(): U64 ? =>
     HashByteSeq.hash(_PackStream.packed([this])?)
 
 
 class _PackStreamStructure
   var signature: U8
-  var fields: (Array[PackStreamType] | None)
+  var fields: (Array[PackStreamType val] val | None)
 
-  new create(signature': U8, fields': (Array[PackStreamType] | None) = None) =>
+  new val create(
+    signature': U8,
+    fields': (Array[PackStreamType val] val | None) = None)
+  =>
     signature = signature'
     fields = fields'
 
-  fun ref field_count(): USize =>
+  fun field_count(): USize =>
     match fields
     | None => 0
-    | let field_array: Array[PackStreamType] => field_array.size()
+    | let field_array: Array[PackStreamType val] val => field_array.size()
     end
 
-  fun ref _hashed_packed(): U64 ? =>
+  // fun ref _hashed_packed(): U64 ? =>
+  fun val _hashed_packed(): U64 ? =>
     HashByteSeq.hash(_PackStream.packed([this])?)
 
 
@@ -94,7 +104,7 @@ primitive _PackStream
         .map[String](
           {(b) => Format.int[U8](b, FormatHexBare, PrefixDefault, 2)}))
 
-  fun packed(values': Array[PackStreamType]): Array[U8] val^ ? =>
+  fun packed(values': Array[PackStreamType val] val): Array[U8] val^ ? =>
     """ PackStream types to bytes functionality. """
     // A buffer to collect the encoded byte pieces
     // of each value found in the values' array.
@@ -107,7 +117,7 @@ primitive _PackStream
         // None is always encoded using the single marker byte C0.
         wb.write([0xC0])
 
-      | let v: PackStreamBoolean =>
+      | let v: PackStreamBoolean val =>
         // Boolean values are encoded within a single marker byte,
         // using C3 to denote true and C2 to denote false.
         let marker: Array[U8] val =
@@ -118,7 +128,7 @@ primitive _PackStream
           end
           wb.write(marker)
 
-      | let v: PackStreamInteger =>
+      | let v: PackStreamInteger val =>
         // Integer values occupy either 1, 2, 3, 5 or 9 bytes depending on
         // magnitude. Several markers are designated specifically as TINY_INT
         // values and can therefore be used to pass a small number in a single
@@ -171,7 +181,7 @@ primitive _PackStream
         //   // Integer value out of packable range
         end
 
-      | let v: PackStreamFloat =>
+      | let v: PackStreamFloat val =>
         // These are double-precision floating-point values, generally used for
         // representing fractions and decimals. Floats are encoded as a single
         // C1 marker byte followed by 8 bytes which are formatted according to
@@ -190,7 +200,7 @@ primitive _PackStream
         wb.write([0xC1])
         wb.f64_be(v)
 
-      | let v: PackStreamString =>
+      | let v: PackStreamString val =>
         // Text data is represented as UTF-8 encoded bytes. Note that the sizes
         // used in string representations are the byte counts of the UTF-8
         // encoded data, not the character count of the original text.
@@ -229,7 +239,7 @@ primitive _PackStream
         end
         wb.write(string_bytes)
 
-      | let v: PackStreamList =>
+      | let v: PackStreamList val =>
         // Lists are heterogeneous sequences of values and therefore permit a
         // mixture of types within the same list. The size of a list denotes
         // the number of items within that list, rather than the total packed
@@ -270,7 +280,7 @@ primitive _PackStream
         let list_bytes: Array[U8] val = packed(v.data)?
         wb.write(list_bytes)
 
-      | let v: PackStreamMap =>
+      | let v: PackStreamMap val =>
         // Maps are sets of key-value pairs that permit a mixture of types
         // within the same map. The size of a map denotes the number of pairs
         // within that map, not the total packed byte size. The markers used to
@@ -310,14 +320,17 @@ primitive _PackStream
           // Map too long to pack
           error
         end
-        let map_pairs_array = Array[PackStreamType]
+        let map_pairs_array: Array[PackStreamType val] trn =
+          recover trn map_pairs_array.create() end
         for (k', v') in v.data.pairs() do
           map_pairs_array .> push(k') .> push(v')
         end
-        let map_bytes: Array[U8] val = packed(map_pairs_array)?
+        let map_pairs_array': Array[PackStreamType val] val =
+          consume map_pairs_array
+        let map_bytes: Array[U8] val = packed(map_pairs_array')?
         wb.write(map_bytes)
 
-      | let v: PackStreamStructure =>
+      | let v: PackStreamStructure val =>
         // Structures represent composite values and consist, beyond the marker
         // of a single byte signature followed by a sequence of fields, each an
         // individual value. The size of a structure is measured as the number
@@ -345,7 +358,7 @@ primitive _PackStream
         let size: USize =
           match v.fields
           | None => 0
-          | let field_array: Array[PackStreamType] => field_array.size()
+          | let field_array: Array[PackStreamType val] val => field_array.size()
           end
 
         if size < 0x10 then
@@ -364,7 +377,7 @@ primitive _PackStream
         wb.u8(v.signature)
         if size > 0 then
           let fields_bytes: Array[U8] val =
-            packed(v.fields as Array[PackStreamType])?
+            packed(v.fields as Array[PackStreamType val] val)?
           wb.write(fields_bytes)
         end
 
@@ -380,12 +393,12 @@ primitive _PackStream
     end
     consume b
 
-  fun unpacked(data: ByteSeq, offset: USize = 0): PackStreamType ? =>
+  fun unpacked(data: ByteSeq, offset: USize = 0): PackStreamType val ? =>
     """ Bytes to PackStream type functionality. """
     _Packed(data, offset)?.next()
 
 
-class _Packed is Iterator[PackStreamType]
+class _Packed is Iterator[PackStreamType val]
   """
   The Packed class provides a framework for "unpacking" packed data. Given a
   string of byte data and an initial offset, values can be extracted via the
@@ -395,7 +408,7 @@ class _Packed is Iterator[PackStreamType]
   let _rb: Reader
   let _data: ByteSeq
   var _has_next: Bool = false
-  var _next: PackStreamType = None
+  var _next: PackStreamType val = None
 
   new create(data: ByteSeq, offset: USize = 0) ? =>
     _rb = Reader
@@ -403,7 +416,7 @@ class _Packed is Iterator[PackStreamType]
     _rb.append(_data)
     _rb.skip(offset)?
     try
-      _next = _unpack()? as PackStreamType
+      _next = _unpack()? as PackStreamType val
       _has_next = true
     else
       // No PackStreamTypes available
@@ -413,10 +426,10 @@ class _Packed is Iterator[PackStreamType]
   fun ref has_next(): Bool val =>
     _has_next
 
-  fun ref next(): PackStreamType =>
+  fun ref next(): PackStreamType val =>
     let r = _next
     try
-      _next = _unpack()? as PackStreamType
+      _next = _unpack()? as PackStreamType val
     else
       _has_next = false
     end
@@ -432,39 +445,44 @@ class _Packed is Iterator[PackStreamType]
 
   fun ref _unpack_map(
     pair_count: USize)
-    : MapIs[PackStreamType, PackStreamType] ?
+    : MapIs[PackStreamType val, PackStreamType val] val^ ?
   =>
-    let pair_data = _unpack(pair_count * 2)? as Array[PackStreamType]
+    let pair_data = _unpack(pair_count * 2)? as Array[PackStreamType val] val
 
     let key_iter =
-      Iter[PackStreamType](pair_data.values())
+      Iter[PackStreamType val](pair_data.values())
         .enum().filter( {(pair) => (pair._1 % 2) == 0 } )
-        .map[PackStreamType]( {(pair) => pair._2 })
+        .map[PackStreamType val]( {(pair) => pair._2 })
 
     let val_iter =
-      Iter[PackStreamType](pair_data.values())
+      Iter[PackStreamType val](pair_data.values())
         .enum().filter( {(pair) => (pair._1 % 2) != 0 } )
-        .map[PackStreamType]( {(pair) => pair._2 })
+        .map[PackStreamType val]( {(pair) => pair._2 })
 
-    let kv_pairs = key_iter.zip[PackStreamType](val_iter)
+    let kv_pairs = key_iter.zip[PackStreamType val](val_iter)
 
-    let m: MapIs[PackStreamType, PackStreamType] = m.create(pair_count)
-    m.concat(kv_pairs)
-    m
+    let m: MapIs[PackStreamType val, PackStreamType val] trn =
+      recover trn m.create(pair_count) end
+    // m.concat(kv_pairs) :(
+    for kv in kv_pairs do
+      m(kv._1) = kv._2
+    end
+    consume m
 
   fun ref _unpack_structure(
     field_count: USize)
-    : (U8, Array[PackStreamType]) ?
+    : (U8, Array[PackStreamType val] val) ?
   =>
     let signature = _rb.u8()?
-    let fields = _unpack(field_count)? as Array[PackStreamType]
+    let fields = _unpack(field_count)? as Array[PackStreamType val] val
     (signature, fields)
 
   fun ref _unpack(
     count: USize = 1)
-    : (PackStreamType | Array[PackStreamType]) ?
+    : (PackStreamType val | Array[PackStreamType val] val^) ?
   =>
-    let unpacked = Array[PackStreamType].create(count)
+    let unpacked: Array[PackStreamType val] trn =
+      recover trn unpacked.create(count) end
 
     for _ in Range(0, count) do
       let marker_byte = _rb.u8()?
@@ -491,23 +509,23 @@ class _Packed is Iterator[PackStreamType]
       | 0xD2 => unpacked.push(_unpack_string(_rb.u32_be()?.usize())?)
       // PackStreamList
       | let mb: U8 if (0x90 <= mb) and (mb < 0xA0) =>
-       unpacked.push(PackStreamList.from_array(
-         _unpack((mb and 0x0F).usize())? as Array[PackStreamType]))
-      | 0xD4 => unpacked.push(PackStreamList.from_array(
-          _unpack(_rb.u8()?.usize())? as Array[PackStreamType]))
-      | 0xD5 => unpacked.push(PackStreamList.from_array(
-          _unpack(_rb.u16_be()?.usize())? as Array[PackStreamType]))
-      | 0xD6 => unpacked.push(PackStreamList.from_array(
-          _unpack(_rb.u32_be()?.usize())? as Array[PackStreamType]))
+       unpacked.push(PackStreamList(
+         _unpack((mb and 0x0F).usize())? as Array[PackStreamType val] val))
+      | 0xD4 => unpacked.push(PackStreamList(
+          _unpack(_rb.u8()?.usize())? as Array[PackStreamType val] val))
+      | 0xD5 => unpacked.push(PackStreamList(
+          _unpack(_rb.u16_be()?.usize())? as Array[PackStreamType val] val))
+      | 0xD6 => unpacked.push(PackStreamList(
+          _unpack(_rb.u32_be()?.usize())? as Array[PackStreamType val] val))
       // PackStreamMap
       | let mb: U8 if (0xA0 <= mb) and (mb < 0xB0) =>
-        unpacked.push(PackStreamMap.from_map(
+        unpacked.push(PackStreamMap(
           _unpack_map((mb and 0x0F).usize())?))
-      | 0xD8 => unpacked.push(PackStreamMap.from_map(
+      | 0xD8 => unpacked.push(PackStreamMap(
           _unpack_map(_rb.u8()?.usize())?))
-      | 0xD9 => unpacked.push(PackStreamMap.from_map(
+      | 0xD9 => unpacked.push(PackStreamMap(
           _unpack_map(_rb.u16_be()?.usize())?))
-      | 0xDA => unpacked.push(PackStreamMap.from_map(
+      | 0xDA => unpacked.push(PackStreamMap(
           _unpack_map(_rb.u32_be()?.usize())?))
       // PackStreamStructure
       | let mb: U8 if (0xB0 <= mb) and (mb < 0xC0) =>
@@ -528,5 +546,5 @@ class _Packed is Iterator[PackStreamType]
     if count == 1 then
       unpacked(0)?
     else
-      unpacked
+      consume unpacked
     end

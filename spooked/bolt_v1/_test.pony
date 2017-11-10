@@ -1,5 +1,5 @@
 use "collections"
-use "itertools"
+// use "itertools"
 use "ponytest"
 
 actor Main is TestList
@@ -285,33 +285,30 @@ class iso _TestPackStreamPackedList is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/packed/List"
 
   fun apply(h: TestHelper) ? =>
-    var list = PackStreamList
+    var list = PackStreamList([])
     // Empty list
     h.assert_eq[String](
       "90",
       _PackStream.h(
         _PackStream.packed([list])?))
     // [1, 2, 3]
-    list.data
-      .> push(I64(1))
-      .> push(I64(2))
-      .> push(I64(3))
+    list = PackStreamList([I64(1); I64(2); I64(3)])
     h.assert_eq[String](
       "93:01:02:03",
       _PackStream.h(
         _PackStream.packed([list])?))
     // [1, 2.0, "three"]
-    list.data(1)? = F64(2.0)
-    list.data(2)? = "three"
+    list = PackStreamList([I64(1); F64(2.0); "three"])
     h.assert_eq[String](
       "93:01:C1:40:00:00:00:00:00:00:00:85:74:68:72:65:65",
       _PackStream.h(
         _PackStream.packed([list])?))
     // [1, 2, 3 ... 40]
-    list.data.clear()
+    let data3 = recover trn Array[PackStreamType val] end
     for i in Range(1, 41) do
-      list.data.push(i.i64())
+      data3.push(i.i64())
     end
+    list = PackStreamList(consume data3)
     h.assert_eq[String](
       "D4:28:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F:20:21:22:23:24:25:26:27:28",
       _PackStream.h(
@@ -322,30 +319,32 @@ class iso _TestPackStreamUnpackedList is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/List"
 
   fun apply(h: TestHelper) ? =>
-    var value: PackStreamList
+    var value: PackStreamList val
     var pkd: ByteSeq
-    var unpkd: PackStreamList
+    var unpkd: PackStreamList val
     // Empty list
-    value = PackStreamList.from_array([])
+    value = PackStreamList([])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
     // Homogeneous list
-    value = PackStreamList.from_array([I64(1); I64(2); I64(3)])
+    value = PackStreamList([I64(1); I64(2); I64(3)])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
     // Heterogeneous list
-    value = PackStreamList.from_array([I64(1); F64(2.0); "three"])
+    value = PackStreamList([I64(1); F64(2.0); "three"])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
     // Longer list
-    let one_to_forty = Array[PackStreamType].create(40)
-    Iter[I64](Range[I64](1, 41)).map_stateful[None]({(x) => one_to_forty.push(x)}).run()
-    value = PackStreamList.from_array(one_to_forty)
+    let one_to_forty = recover trn Array[PackStreamType val] end
+    for i in Range[I64](1, 41) do
+      one_to_forty.push(i)
+    end
+    value = PackStreamList(consume one_to_forty)
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
 
 class iso _TestPackStreamPackedMap is UnitTest
@@ -353,26 +352,31 @@ class iso _TestPackStreamPackedMap is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/packed/Map"
 
   fun apply(h: TestHelper) ? =>
-    var map = PackStreamMap
+    var map: PackStreamMap val
     // Empty map
+    let data1 = recover val MapIs[PackStreamType val, PackStreamType val] end
+    map = PackStreamMap(data1)
     h.assert_eq[String](
       "A0",
       _PackStream.h(
         _PackStream.packed([map])?))
     // {"one": "eins"}
-    map.data("one") = "eins"
+    let data2 = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    data2("one") = "eins"
+    map = PackStreamMap(consume data2)
     h.assert_eq[String](
       "A1:83:6F:6E:65:84:65:69:6E:73",
       _PackStream.h(
         _PackStream.packed([map])?))
     // {"A": 1, "B": 2, ... "Z": 26}
-    map.data.clear()
+    let data3 = recover trn MapIs[PackStreamType val, PackStreamType val] end
     let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var pos: USize = 0
     for i in Range(0, 26) do
       pos = i + 1
-      map.data(alphabet.trim(i, pos)) = pos.i64()
+      data3(alphabet.trim(i, pos)) = pos.i64()
     end
+    map = PackStreamMap(consume data3)
     let packed_map = _PackStream.h(_PackStream.packed([map])?)
     let sub_seq_asserts = [
       "D8:1A" // D8 marker, 26 pairs
@@ -392,29 +396,33 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/Map"
 
   fun apply(h: TestHelper) ? =>
-    var map: PackStreamMap
+    var map: PackStreamMap val
     var pkd: ByteSeq
-    var unpkd: PackStreamMap
+    var unpkd: PackStreamMap val
     // Empty Map
-    map = PackStreamMap
+    let data1 = recover val MapIs[PackStreamType val, PackStreamType val] end
+    map = PackStreamMap(data1)
     pkd = _PackStream.packed([map])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap val
     h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)
     // {"one": "eins"}
-    map.data("one") = "eins"
+    let data2 = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    data2("one") = "eins"
+    map = PackStreamMap(consume data2)
     pkd = _PackStream.packed([map])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap val
     h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)
     // {"A": 1, "B": 2, ... "Z": 26}
-    map.data.clear()
+    let data3 = recover trn MapIs[PackStreamType val, PackStreamType val] end
     let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var pos: USize = 0
     for i in Range(0, 26) do
       pos = i + 1
-      map.data(alphabet.trim(i, pos)) = pos.i64()
+      data3(alphabet.trim(i, pos)) = pos.i64()
     end
+    map = PackStreamMap(consume data3)
     pkd = _PackStream.packed([map])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap val
     // Cannot assert_eq _hashed_packed because map pairs are unordered...
     // Assert map sizes
     h.assert_eq[USize](map.data.size(), unpkd.data.size())
@@ -457,28 +465,29 @@ class iso _TestPackStreamPackedStructure is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/packed/Structure"
 
   fun apply(h: TestHelper) ? =>
-    var structure: PackStreamStructure
+    var structure: PackStreamStructure val
     var signature: U8
-    var fields = Array[PackStreamType]
+    let fields1 = recover trn Array[PackStreamType val] end
     // Struct(sig=0x01, fields=[1,2,3])
     signature = 0x01
-    fields
+    fields1
       .> push(I64(1))
       .> push(I64(2))
       .> push(I64(3))
-    structure = PackStreamStructure(signature, fields)
+    structure = PackStreamStructure(signature, consume fields1)
     h.assert_eq[String](
       "B3:01:01:02:03",
       _PackStream.h(
         _PackStream.packed([structure])?))
     // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
-    structure.signature = 0x7F
-    fields = structure.fields as Array[PackStreamType]
-    fields
-      .> push(I64(4)) .> push(I64(5)) .> push(I64(6)) .> push(I64(7))
-      .> push(I64(8)) .> push(I64(9)) .> push(I64(0)) .> push(I64(1))
-      .> push(I64(2)) .> push(I64(3)) .> push(I64(4)) .> push(I64(5))
-      .> push(I64(6))
+    signature = 0x7F
+    let fields2 = recover trn Array[PackStreamType val] end
+    fields2
+      .> push(I64(1)) .> push(I64(2)) .> push(I64(3)) .> push(I64(4))
+      .> push(I64(5)) .> push(I64(6)) .> push(I64(7)) .> push(I64(8))
+      .> push(I64(9)) .> push(I64(0)) .> push(I64(1)) .> push(I64(2))
+      .> push(I64(3)) .> push(I64(4)) .> push(I64(5)) .> push(I64(6))
+    structure = PackStreamStructure(signature, consume fields2)
     h.assert_eq[String](
       "DC:10:7F:01:02:03:04:05:06:07:08:09:00:01:02:03:04:05:06",
       _PackStream.h(
@@ -489,26 +498,26 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/Structure"
 
   fun apply(h: TestHelper) ? =>
-    var value: PackStreamStructure
+    var value: PackStreamStructure val
     var pkd: ByteSeq
-    var unpkd: PackStreamStructure
+    var unpkd: PackStreamStructure val
     // Struct(sig=0x01, fields=[1,2,3])
     value = PackStreamStructure(0x01, [I64(1); I64(2); I64(3)])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure val
     h.assert_eq[U8](value.signature, unpkd.signature)
     h.assert_eq[USize](value.field_count(), unpkd.field_count())
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
     // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
-    value.signature = 0x7f
-    var fields = value.fields as Array[PackStreamType]
+    var fields = recover trn Array[PackStreamType val] end
     fields
-      .> push(I64(4)) .> push(I64(5)) .> push(I64(6)) .> push(I64(7))
-      .> push(I64(8)) .> push(I64(9)) .> push(I64(0)) .> push(I64(1))
-      .> push(I64(2)) .> push(I64(3)) .> push(I64(4)) .> push(I64(5))
-      .> push(I64(6))
+      .> push(I64(1)) .> push(I64(2)) .> push(I64(3)) .> push(I64(4))
+      .> push(I64(5)) .> push(I64(6)) .> push(I64(7)) .> push(I64(8))
+      .> push(I64(9)) .> push(I64(0)) .> push(I64(1)) .> push(I64(2))
+      .> push(I64(3)) .> push(I64(4)) .> push(I64(5)) .> push(I64(6))
+    value = PackStreamStructure(0x7f, consume fields)
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure
+    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure val
     h.assert_eq[U8](value.signature, unpkd.signature)
     h.assert_eq[USize](value.field_count(), unpkd.field_count())
     h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
@@ -519,10 +528,11 @@ class iso _TestClientMessageInit is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let user_agent: String = "MyClient/1.0"
-    let auth_map = PackStreamMap
-    auth_map.data("scheme") = "basic"
-    auth_map.data("principal") = "neo4j"
-    auth_map.data("credentials") = "secret"
+    let data = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    data("scheme") = "basic"
+    data("principal") = "neo4j"
+    data("credentials") = "secret"
+    let auth_map = PackStreamMap(consume data)
     let msg_struct = InitMessage(user_agent, auth_map)
     let pkd = _PackStream.packed([msg_struct])?
     let pkd_string = _PackStream.h(pkd)
@@ -543,7 +553,9 @@ class iso _TestClientMessageRun is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let statement: String = "RETURN 1 AS num"
-    let parameters = PackStreamMap
+    let empty_map =
+      recover val MapIs[PackStreamType val, PackStreamType val] end
+    let parameters = PackStreamMap(consume empty_map)
     let msg_struct = RunMessage(statement, parameters)
     let pkd = _PackStream.packed([msg_struct])?
     // Works only due to empty param map

@@ -16,7 +16,7 @@ actor Driver
   that requires interaction with the database.
   """
   let _logger: Logger[String] val
-  let _connection_pool: _ConnectionPool tag
+  let _connection_pool: _BoltConnectionPool tag
   let _open_sessions: SetIs[Session tag]
 
   new _create(
@@ -39,7 +39,7 @@ actor Driver
       end
 
     _connection_pool =
-      _ConnectionPool(
+      _BoltConnectionPool(
         host,
         port',
         config,

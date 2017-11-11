@@ -16,15 +16,15 @@ interface SessionNotify
 actor Session
   let _driver: Driver tag
   let _notify: SessionNotify
-  let _connection_pool: _ConnectionPool tag
-  var _connection: (_Connection tag /*iso*/ | None) = None
+  let _connection_pool: _BoltConnectionPool tag
+  var _connection: (BoltConnection tag /*iso*/ | None) = None
   var _release_on_reset: Bool = false
   let _logger: Logger[String] val
 
   new _create(
     driver: Driver tag,
     notify: SessionNotify iso,
-    connection_pool: _ConnectionPool tag,
+    connection_pool: _BoltConnectionPool tag,
     logger: Logger[String] val)
   =>
     """
@@ -39,8 +39,8 @@ actor Session
     _connection_pool.acquire(this)
 
   be _receive_connection(
-    // connection: _Connection iso,
-    connection: _Connection tag,
+    // connection: BoltConnection iso,
+    connection: BoltConnection tag,
     go_ahead: Bool)
   =>
     // _connection = consume connection
@@ -60,7 +60,7 @@ actor Session
 
   // be reset()
 
-  be _error(err: _ConnectionError) =>
+  be _error(err: _BoltConnectionError) =>
     """"""
     // match err
     // | ...
@@ -72,11 +72,11 @@ actor Session
 
   be reset() =>
     match _connection
-    | let c: _Connection tag =>
+    | let c: BoltConnection tag =>
       c.reset()
     end
 
-  be _successfully_reset(connection: _Connection tag) =>
+  be _successfully_reset(connection: BoltConnection tag) =>
     if _release_on_reset then
       _connection_pool.release(connection)
     end
@@ -85,7 +85,7 @@ actor Session
     """"""
     // TODO: [Session] dispose
     match _connection
-    | let c: _Connection tag =>
+    | let c: BoltConnection tag =>
       c.reset()
       _release_on_reset = true
       _connection = None

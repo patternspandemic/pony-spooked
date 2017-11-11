@@ -33,9 +33,9 @@ primitive _ProposedProtocolVersions
 
 class _Handshake is TCPConnectionNotify
   let _logger: Logger[String] val
-  let _connection: _Connection tag
+  let _connection: BoltConnection tag
 
-  new iso create(connection: _Connection tag, logger: Logger[String] val) =>
+  new iso create(connection: BoltConnection tag, logger: Logger[String] val) =>
     _connection = connection
     _logger = logger
 
@@ -119,4 +119,4 @@ class _Handshake is TCPConnectionNotify
     false
 
   fun ref closed(conn: TCPConnection ref) =>
-    _connection._closed()
+    _connection.closed()

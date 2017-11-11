@@ -3,12 +3,14 @@ use "logger"
 use "net"
 use "net/ssl"
 
+use "./bolt_v1"
+
 primitive ServiceUnavailable
 primitive SessionExpired
 primitive ProtocolError
 primitive UnsupportedProtocolVersion
 
-type _ConnectionError is
+type _BoltConnectionError is
   ( ServiceUnavailable
   | SessionExpired
   | ProtocolError
@@ -16,14 +18,14 @@ type _ConnectionError is
   )
 
 
-actor _ConnectionPool
+actor _BoltConnectionPool
   let _logger: Logger[String] val
   let _net_auth: NetAuth val
   let _config: _Configuration val
   let _host: String val
   let _port: String val
-  // let _connections: Array[_Connection iso]
-  let _connections: Array[_Connection tag]
+  // let _connections: Array[BoltConnection iso]
+  let _connections: Array[BoltConnection tag]
   var _drained: Bool = false
 
   new create(
@@ -38,23 +40,23 @@ actor _ConnectionPool
     _config = config
     _host = host
     _port = port.string()
-    // _connections = Array[_Connection iso].create()
-    _connections = Array[_Connection tag].create()
+    // _connections = Array[BoltConnection iso].create()
+    _connections = Array[BoltConnection tag].create()
 
   be acquire(session: Session tag) =>
-    """Send a _Connection to session."""
+    """Send a BoltConnection to session."""
     try
-      // let connection: _Connection iso = _connections.shift()?
-      let connection: _Connection tag = _connections.shift()?
+      // let connection: BoltConnection iso = _connections.shift()?
+      let connection: BoltConnection tag = _connections.shift()?
       connection._set_session(session)
       session._receive_connection(/*consume*/ connection, true)
     else
-      let connection: _Connection tag = //iso =
-        _Connection(session, _host, _port, _config, _net_auth, _logger)
+      let connection: BoltConnection tag = //iso =
+        BoltConnection(session, _host, _port, _config, _net_auth, _logger)
       session._receive_connection(/*consume*/ connection, false)
     end
 
-  be release(connection: _Connection tag) =>
+  be release(connection: BoltConnection tag) =>
     """Accept the released reset connection back into the pool."""
     connection._clear_session()
     if not _drained then
@@ -74,8 +76,8 @@ actor _ConnectionPool
     _drained = true
 
 
-// class _Connection
-actor _Connection
+// class BoltConnection
+actor BoltConnection
   let _logger: Logger[String] val
   let _net_auth: NetAuth val
   let _config: _Configuration val
@@ -83,6 +85,7 @@ actor _Connection
   let _port: String val
   // var _ssl_context: (SSLContext | None) = None
   var _conn: (TCPConnection | None) = None
+  var _bolt_messenger: (BoltMessenger tag | None) = None
   var _session: (Session tag | None) = None
 
   // new iso create(
@@ -122,27 +125,34 @@ actor _Connection
     end
 
   be _version_negotiation_failed() =>
-    // TODO: [_Connection] Cleanup? Server closes connection,
+    // TODO: [BoltConnection] Cleanup? Server closes connection,
     //    Likely will get callbakc to _closed
     match _session
     | let s: Session tag => s._error(UnsupportedProtocolVersion)
     end
 
   be _unsupported_version(unsupported_version: U32) =>
-    // TODO: [_Connection] Likely shouldn't happen, but need to close down
+    // TODO: [BoltConnection] Likely shouldn't happen, but need to close down
     //    as server won't close connection in this case. Call manually.
     match _session
     | let s: Session tag => s._error(ProtocolError)
     end
 
   be _handshook(version: U32) =>
-    // TODO: [_Connection] Change TCP notify based on version
-    //    Setup _conn details from config?
+    // TODO: [BoltConnection] Change TCP notify based on version
+    //    - Use a better version to BoltConnectionNotify mapping
+    //    - Setup _conn details from config?
+    match _conn
+    | let c: TCPConnection =>
+      let bolt_messenger = BoltV1Messenger(this, c, _logger)
+      c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
+      _bolt_messenger = bolt_messenger
+    end
     match _session
     | let s: Session tag => s._go_ahead()
     end
 
-  be _closed() =>
+  be closed() =>
     _conn = None
     match _session
     | let s: Session tag => s._closed()
@@ -156,11 +166,12 @@ actor _Connection
   be _clear_session() =>
     _session = None
 
-  be reset() => """"""
-    // TODO: [_Connection] Somehow reset the underlying _conn via the versioned bolt notify?
-    _successfully_reset() // TODO: Remove after implement!
+  be reset() =>
+    match _bolt_messenger
+    | let m: BoltMessenger tag => m.reset()
+    end
 
-  be _successfully_reset() =>
+  be successfully_reset() =>
     match _session
     | let s: Session tag => s._successfully_reset(this)
     end
@@ -169,3 +180,24 @@ actor _Connection
     match _conn
     | let c: TCPConnection => c.dispose()
     end
+
+/*
+  Don't think I'll need this, interface will be with the
+  messaging side of things.
+
+interface BoltConnectionNotify
+  """
+  Notifications for a versioned Bolt protocol.
+  """
+  be reset()
+    """
+    Reset the Bolt connection. Calls _successfully_reset on the BoltConnection
+    if successful.
+    """
+*/
+
+interface BoltMessenger
+  """
+  """
+  be reset()
+    """Reset the Bolt connection."""

@@ -1,3 +1,8 @@
+// use "buffered"
+use "logger"
+use "net"
+
+use ".."
 
 primitive INIT
   fun apply(): U8 => 0x01
@@ -87,3 +92,29 @@ primitive IGNORED
   fun string(): String => "IGNORED"
 
 // primitive IgnoredMessage
+
+
+actor BoltV1Messenger is BoltMessenger
+  """
+  Creates Bolt v1 protocol messages and sends them to the underlying
+  TCP connection. They are however first encoded via the related
+  BoltV1ConnectionNotify object which handles message transport.
+  """
+  let _logger: Logger[String] val
+  let _tcp_conn: TCPConnection tag
+  let _bolt_conn: BoltConnection tag
+
+  new create(
+    bolt_conn: BoltConnection tag,
+    tcp_conn: TCPConnection tag,
+    logger: Logger[String] val)
+  =>
+    _logger = logger
+    _tcp_conn = tcp_conn
+    _bolt_conn = bolt_conn
+
+  be reset() =>
+    // TODO: [BoltV1Messenger] reset
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Sending RESET to server...")
+    _bolt_conn.successfully_reset() // Would notify send this back?

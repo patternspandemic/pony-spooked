@@ -4,6 +4,13 @@ use "net"
 
 use ".."
 
+/* Client Messaging */
+// TODO: Have client messages return encoded Array[U8] val,
+// this way simple messages can be represented stait as their
+// two byte representation, without having to create as a
+// PackStreamStructure and pass through the packed fun.
+// --> INIT and RUN can use _PackStream.packed([PackStreamStructure(...)])
+
 primitive INIT
   fun apply(): U8 => 0x01
   fun string(): String => "INIT"
@@ -65,6 +72,7 @@ primitive ResetMessage
   fun apply(): PackStreamStructure val =>
     PackStreamStructure(RESET())
 
+/* Server Messaging */
 
 primitive RECORD
   fun apply(): U8 => 0x71

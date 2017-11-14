@@ -4,6 +4,10 @@ use "net"
 
 use ".."
 
+primitive BoltTransport
+  fun max_chunk_size(): U16 => 0xFFFF
+  fun message_boundary(): U16 => 0
+
 class BoltV1ConnectionNotify is TCPConnectionNotify
   """
   Notifications for active TCP connections speeking version 1 of the Bolt

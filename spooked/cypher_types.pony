@@ -37,6 +37,8 @@ class CypherMap
   var data: MapIs[CypherType val, CypherType val] val
   new val create(data': MapIs[CypherType val, CypherType val] val) =>
     data = data'
+  new val empty() =>
+    data = recover val MapIs[CypherType val, CypherType val] end
 
 
 class CypherStructure

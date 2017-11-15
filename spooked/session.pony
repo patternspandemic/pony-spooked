@@ -58,7 +58,7 @@ actor Session
 
   be run(
     statement: String val,
-    parameters: CypherMap val)
+    parameters: CypherMap val = CypherMap.empty())
   =>
     """Pass a Cypher statement for execution on the server."""
     match _connection

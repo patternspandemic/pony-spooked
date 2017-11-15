@@ -229,7 +229,7 @@ interface BoltMessenger
   """
   be init(config: Configuration val)
     """Initialize the Bolt connection."""
-  be add_statement()
+  be add_statement(statement: String val, parameters: CypherMap val)
     """Add a Cypher statement to be run by the server."""
   be flush()
     """Send all pipelined messages through the connection."""

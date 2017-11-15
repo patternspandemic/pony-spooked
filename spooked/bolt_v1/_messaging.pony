@@ -28,7 +28,7 @@ primitive RUN
 primitive RunMessage
   fun apply(
     statement: String,
-    parameters: CypherMap val)
+    parameters: CypherMap val = CypherMap.empty())
     : ByteSeq ?
   =>
     _PackStream.packed([
@@ -126,7 +126,7 @@ actor BoltV1Messenger is BoltMessenger
       _bolt_conn.protocol_error()
     end
 
-  be add_statement() =>
+  be add_statement(statement: String val, parameters: CypherMap val) =>
     """Add a Cypher statement to be run by the server."""
     // TODO: [BoltV1Messenger] add_statement
     None

@@ -38,7 +38,11 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     data
 
   // sentv ?
-  // received
+
+  // received - keep receiving for a complete message, then act on it.
+  //    Pass back to _messenger? (seen it may have to send ACK_FAILURE in resp.)
+  //    Also keeps things in this sub-package until response complete
+
   // expect ?
 
   fun ref closed(conn: TCPConnection ref) =>

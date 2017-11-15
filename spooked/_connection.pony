@@ -146,12 +146,31 @@ actor BoltConnection
     | let c: TCPConnection =>
       let bolt_messenger = BoltV1Messenger(this, c, _logger)
       c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
+      bolt_messenger.init()
       _bolt_messenger = bolt_messenger
     end
     match _session
     | let s: Session tag => s._go_ahead()
     end
 
+  be _run(
+    statement: String val,
+    parameters: CypherMap val)
+  =>
+    // TODO: [BoltConnection] _run()
+    match _bolt_messenger
+    | let messenger: BoltMessenger tag =>
+      // messenger.add_statement(...)
+      None // tmp
+    end
+
+  // TODO: [BoltConnection] Make flush() private?
+  be flush() =>
+    match _bolt_messenger
+    | let m: BoltMessenger tag => m.flush()
+    end
+
+  // Must be public for sub-package access.
   be closed() =>
     _conn = None
     match _session
@@ -166,16 +185,19 @@ actor BoltConnection
   be _clear_session() =>
     _session = None
 
+  // TODO: [BoltConnection] Make reset() private?
   be reset() =>
     match _bolt_messenger
     | let m: BoltMessenger tag => m.reset()
     end
 
+  // Must be public for sub-package access.
   be successfully_reset() =>
     match _session
     | let s: Session tag => s._successfully_reset(this)
     end
 
+  // TODO: [BoltConnection] Make dispose() private?
   be dispose() =>
     match _conn
     | let c: TCPConnection => c.dispose()
@@ -199,5 +221,11 @@ interface BoltConnectionNotify
 interface BoltMessenger
   """
   """
+  be init()
+    """Initialize the Bolt connection."""
+  be add_statement()
+    """Add a Cypher statement to be run by the server."""
+  be flush()
+    """Send all pipelined messages through the connection."""
   be reset()
     """Reset the Bolt connection."""

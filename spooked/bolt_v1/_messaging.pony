@@ -5,11 +5,6 @@ use "net"
 use ".."
 
 /* Client Messaging */
-// TODO: Have client messages return encoded Array[U8] val,
-// this way simple messages can be represented stait as their
-// two byte representation, without having to create as a
-// PackStreamStructure and pass through the packed fun.
-// --> INIT and RUN can use _PackStream.packed([PackStreamStructure(...)])
 
 primitive INIT
   fun apply(): U8 => 0x01
@@ -18,10 +13,12 @@ primitive INIT
 primitive InitMessage
   fun apply(
     client_name: String,
-    auth_token: PackStreamMap val)
-    : PackStreamStructure val
+    auth_token: CypherMap val)
+    : ByteSeq ?
   =>
-    PackStreamStructure(INIT(), [client_name; auth_token])
+    _PackStream.packed([
+      CypherStructure(INIT(), [client_name; auth_token])
+    ])?
 
 
 primitive RUN
@@ -31,10 +28,12 @@ primitive RUN
 primitive RunMessage
   fun apply(
     statement: String,
-    parameters: PackStreamMap val)
-    : PackStreamStructure val
+    parameters: CypherMap val)
+    : ByteSeq ?
   =>
-    PackStreamStructure(RUN(), [statement; parameters])
+    _PackStream.packed([
+      CypherStructure(RUN(), [statement; parameters])
+    ])?
 
 
 primitive DISCARDALL
@@ -42,8 +41,7 @@ primitive DISCARDALL
   fun string(): String => "DISCARD_ALL"
 
 primitive DiscardAllMessage
-  fun apply(): PackStreamStructure val =>
-    PackStreamStructure(DISCARDALL())
+  fun apply(): ByteSeq => [0xB0; 0x2F]
 
 
 primitive PULLALL
@@ -51,8 +49,7 @@ primitive PULLALL
   fun string(): String => "PULL_ALL"
 
 primitive PullAllMessage
-  fun apply(): PackStreamStructure val =>
-    PackStreamStructure(PULLALL())
+  fun apply(): ByteSeq => [0xB0; 0x3F]
 
 
 primitive ACKFAILURE
@@ -60,8 +57,7 @@ primitive ACKFAILURE
   fun string(): String => "ACKFAILURE"
 
 primitive AckFailureMessage
-  fun apply(): PackStreamStructure val =>
-    PackStreamStructure(ACKFAILURE())
+  fun apply(): ByteSeq => [0xB0; 0x0E]
 
 
 primitive RESET
@@ -69,8 +65,7 @@ primitive RESET
   fun string(): String => "RESET"
 
 primitive ResetMessage
-  fun apply(): PackStreamStructure val =>
-    PackStreamStructure(RESET())
+  fun apply(): ByteSeq => [0xB0; 0x0F]
 
 /* Server Messaging */
 
@@ -120,6 +115,21 @@ actor BoltV1Messenger is BoltMessenger
     _logger = logger
     _tcp_conn = tcp_conn
     _bolt_conn = bolt_conn
+
+  be init() =>
+    """Initialize the Bolt connection."""
+    // TODO: [BoltV1Messenger] init
+    None
+
+  be add_statement() =>
+    """Add a Cypher statement to be run by the server."""
+    // TODO: [BoltV1Messenger] add_statement
+    None
+
+  be flush() =>
+    """Send all pipelined messages through the connection."""
+    // TODO: [BoltV1Messenger] flush
+    None
 
   be reset() =>
     // TODO: [BoltV1Messenger] reset

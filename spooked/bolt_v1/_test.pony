@@ -2,6 +2,8 @@ use "collections"
 // use "itertools"
 use "ponytest"
 
+use ".."
+
 actor Main is TestList
   new create(env: Env) =>
     PonyTest(env, this)
@@ -67,10 +69,10 @@ class iso _TestPackStreamUnpackedNone is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/None"
 
   fun apply(h: TestHelper) ? =>
-    var value = PackStreamNull
+    var value = CypherNull
     var pkd = _PackStream.packed([value])?
-    var unpkd = _PackStream.unpacked(pkd)? as PackStreamNull
-    h.assert_eq[PackStreamNull](value, unpkd)
+    var unpkd = _PackStream.unpacked(pkd)? as CypherNull
+    h.assert_eq[CypherNull](value, unpkd)
 
 class iso _TestPackStreamPackedBoolean is UnitTest
   fun name(): String =>
@@ -96,8 +98,8 @@ class iso _TestPackStreamUnpackedBoolean is UnitTest
       true
     ].values() do
       let pkd = _PackStream.packed([value])?
-      let unpkd = _PackStream.unpacked(pkd)? as PackStreamBoolean
-      h.assert_eq[PackStreamBoolean](value, unpkd)
+      let unpkd = _PackStream.unpacked(pkd)? as CypherBoolean
+      h.assert_eq[CypherBoolean](value, unpkd)
     end
 
 class iso _TestPackStreamPackedInteger is UnitTest
@@ -210,8 +212,8 @@ class iso _TestPackStreamUnpackedInteger is UnitTest
       I64(9_223_372_036_854_775_807)
     ].values() do
       let pkd = _PackStream.packed([value])?
-      let unpkd = _PackStream.unpacked(pkd)? as PackStreamInteger
-      h.assert_eq[PackStreamInteger](value, unpkd)
+      let unpkd = _PackStream.unpacked(pkd)? as CypherInteger
+      h.assert_eq[CypherInteger](value, unpkd)
     end
 
 class iso _TestPackStreamPackedFloat is UnitTest
@@ -238,8 +240,8 @@ class iso _TestPackStreamUnpackedFloat is UnitTest
       F64(-1.1)
     ].values() do
       let pkd = _PackStream.packed([value])?
-      let unpkd = _PackStream.unpacked(pkd)? as PackStreamFloat
-      h.assert_eq[PackStreamFloat](value, unpkd)
+      let unpkd = _PackStream.unpacked(pkd)? as CypherFloat
+      h.assert_eq[CypherFloat](value, unpkd)
     end
 
 class iso _TestPackStreamPackedString is UnitTest
@@ -276,8 +278,8 @@ class iso _TestPackStreamUnpackedString is UnitTest
       "Größenmaßstäbe"
     ].values() do
       let pkd = _PackStream.packed([value])?
-      let unpkd = _PackStream.unpacked(pkd)? as PackStreamString
-      h.assert_eq[PackStreamString](value, unpkd)
+      let unpkd = _PackStream.unpacked(pkd)? as CypherString
+      h.assert_eq[CypherString](value, unpkd)
     end
 
 class iso _TestPackStreamPackedList is UnitTest
@@ -285,30 +287,30 @@ class iso _TestPackStreamPackedList is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/packed/List"
 
   fun apply(h: TestHelper) ? =>
-    var list = PackStreamList([])
+    var list = CypherList([])
     // Empty list
     h.assert_eq[String](
       "90",
       _PackStream.h(
         _PackStream.packed([list])?))
     // [1, 2, 3]
-    list = PackStreamList([I64(1); I64(2); I64(3)])
+    list = CypherList([I64(1); I64(2); I64(3)])
     h.assert_eq[String](
       "93:01:02:03",
       _PackStream.h(
         _PackStream.packed([list])?))
     // [1, 2.0, "three"]
-    list = PackStreamList([I64(1); F64(2.0); "three"])
+    list = CypherList([I64(1); F64(2.0); "three"])
     h.assert_eq[String](
       "93:01:C1:40:00:00:00:00:00:00:00:85:74:68:72:65:65",
       _PackStream.h(
         _PackStream.packed([list])?))
     // [1, 2, 3 ... 40]
-    let data3 = recover trn Array[PackStreamType val] end
+    let data3 = recover trn Array[CypherType val] end
     for i in Range(1, 41) do
       data3.push(i.i64())
     end
-    list = PackStreamList(consume data3)
+    list = CypherList(consume data3)
     h.assert_eq[String](
       "D4:28:01:02:03:04:05:06:07:08:09:0A:0B:0C:0D:0E:0F:10:11:12:13:14:15:16:17:18:19:1A:1B:1C:1D:1E:1F:20:21:22:23:24:25:26:27:28",
       _PackStream.h(
@@ -319,64 +321,68 @@ class iso _TestPackStreamUnpackedList is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/List"
 
   fun apply(h: TestHelper) ? =>
-    var value: PackStreamList val
+    var value: CypherList val
     var pkd: ByteSeq
-    var unpkd: PackStreamList val
+    var unpkd: CypherList val
     // Empty list
-    value = PackStreamList([])
+    value = CypherList([])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
-    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    unpkd = _PackStream.unpacked(pkd)? as CypherList val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
     // Homogeneous list
-    value = PackStreamList([I64(1); I64(2); I64(3)])
+    value = CypherList([I64(1); I64(2); I64(3)])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
-    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    unpkd = _PackStream.unpacked(pkd)? as CypherList val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
     // Heterogeneous list
-    value = PackStreamList([I64(1); F64(2.0); "three"])
+    value = CypherList([I64(1); F64(2.0); "three"])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
-    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    unpkd = _PackStream.unpacked(pkd)? as CypherList val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
     // Longer list
-    let one_to_forty = recover trn Array[PackStreamType val] end
+    let one_to_forty = recover trn Array[CypherType val] end
     for i in Range[I64](1, 41) do
       one_to_forty.push(i)
     end
-    value = PackStreamList(consume one_to_forty)
+    value = CypherList(consume one_to_forty)
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamList val
-    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    unpkd = _PackStream.unpacked(pkd)? as CypherList val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
 
 class iso _TestPackStreamPackedMap is UnitTest
   fun name(): String =>
     "spooked/bolt/v1/serialization/_PackStream/packed/Map"
 
   fun apply(h: TestHelper) ? =>
-    var map: PackStreamMap val
+    var map: CypherMap val
     // Empty map
-    let data1 = recover val MapIs[PackStreamType val, PackStreamType val] end
-    map = PackStreamMap(data1)
+    let data1 = recover val MapIs[CypherType val, CypherType val] end
+    map = CypherMap(data1)
     h.assert_eq[String](
       "A0",
       _PackStream.h(
         _PackStream.packed([map])?))
     // {"one": "eins"}
-    let data2 = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    let data2 = recover trn MapIs[CypherType val, CypherType val] end
     data2("one") = "eins"
-    map = PackStreamMap(consume data2)
+    map = CypherMap(consume data2)
     h.assert_eq[String](
       "A1:83:6F:6E:65:84:65:69:6E:73",
       _PackStream.h(
         _PackStream.packed([map])?))
     // {"A": 1, "B": 2, ... "Z": 26}
-    let data3 = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    let data3 = recover trn MapIs[CypherType val, CypherType val] end
     let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var pos: USize = 0
     for i in Range(0, 26) do
       pos = i + 1
       data3(alphabet.trim(i, pos)) = pos.i64()
     end
-    map = PackStreamMap(consume data3)
+    map = CypherMap(consume data3)
     let packed_map = _PackStream.h(_PackStream.packed([map])?)
     let sub_seq_asserts = [
       "D8:1A" // D8 marker, 26 pairs
@@ -396,34 +402,36 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/Map"
 
   fun apply(h: TestHelper) ? =>
-    var map: PackStreamMap val
+    var map: CypherMap val
     var pkd: ByteSeq
-    var unpkd: PackStreamMap val
+    var unpkd: CypherMap val
     // Empty Map
-    let data1 = recover val MapIs[PackStreamType val, PackStreamType val] end
-    map = PackStreamMap(data1)
+    let data1 = recover val MapIs[CypherType val, CypherType val] end
+    map = CypherMap(data1)
     pkd = _PackStream.packed([map])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap val
-    h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)
+    unpkd = _PackStream.unpacked(pkd)? as CypherMap val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(map)?, _PackStream.hashed_packed(unpkd)?)
     // {"one": "eins"}
-    let data2 = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    let data2 = recover trn MapIs[CypherType val, CypherType val] end
     data2("one") = "eins"
-    map = PackStreamMap(consume data2)
+    map = CypherMap(consume data2)
     pkd = _PackStream.packed([map])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap val
-    h.assert_eq[U64](map._hashed_packed()?, unpkd._hashed_packed()?)
+    unpkd = _PackStream.unpacked(pkd)? as CypherMap val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(map)?, _PackStream.hashed_packed(unpkd)?)
     // {"A": 1, "B": 2, ... "Z": 26}
-    let data3 = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    let data3 = recover trn MapIs[CypherType val, CypherType val] end
     let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var pos: USize = 0
     for i in Range(0, 26) do
       pos = i + 1
       data3(alphabet.trim(i, pos)) = pos.i64()
     end
-    map = PackStreamMap(consume data3)
+    map = CypherMap(consume data3)
     pkd = _PackStream.packed([map])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamMap val
-    // Cannot assert_eq _hashed_packed because map pairs are unordered...
+    unpkd = _PackStream.unpacked(pkd)? as CypherMap val
+    // Cannot assert_eq hashed_packed because map pairs are unordered...
     // Assert map sizes
     h.assert_eq[USize](map.data.size(), unpkd.data.size())
     // Cannot directly compare due to MapIs (?), so copy into Maps
@@ -441,8 +449,8 @@ class iso _TestPackStreamUnpackedMap is UnitTest
       pos = i + 1
       let letter: String = alphabet.trim(i, pos)
         h.assert_eq[I64](
-          map'(letter)? as PackStreamInteger,
-          unpkd'(letter)? as PackStreamInteger)
+          map'(letter)? as CypherInteger,
+          unpkd'(letter)? as CypherInteger)
     end
     // Repack `unpkd`, and assert it has the packed subsequences representing
     // packed pairs.
@@ -465,29 +473,29 @@ class iso _TestPackStreamPackedStructure is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/packed/Structure"
 
   fun apply(h: TestHelper) ? =>
-    var structure: PackStreamStructure val
+    var structure: CypherStructure val
     var signature: U8
-    let fields1 = recover trn Array[PackStreamType val] end
+    let fields1 = recover trn Array[CypherType val] end
     // Struct(sig=0x01, fields=[1,2,3])
     signature = 0x01
     fields1
       .> push(I64(1))
       .> push(I64(2))
       .> push(I64(3))
-    structure = PackStreamStructure(signature, consume fields1)
+    structure = CypherStructure(signature, consume fields1)
     h.assert_eq[String](
       "B3:01:01:02:03",
       _PackStream.h(
         _PackStream.packed([structure])?))
     // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
     signature = 0x7F
-    let fields2 = recover trn Array[PackStreamType val] end
+    let fields2 = recover trn Array[CypherType val] end
     fields2
       .> push(I64(1)) .> push(I64(2)) .> push(I64(3)) .> push(I64(4))
       .> push(I64(5)) .> push(I64(6)) .> push(I64(7)) .> push(I64(8))
       .> push(I64(9)) .> push(I64(0)) .> push(I64(1)) .> push(I64(2))
       .> push(I64(3)) .> push(I64(4)) .> push(I64(5)) .> push(I64(6))
-    structure = PackStreamStructure(signature, consume fields2)
+    structure = CypherStructure(signature, consume fields2)
     h.assert_eq[String](
       "DC:10:7F:01:02:03:04:05:06:07:08:09:00:01:02:03:04:05:06",
       _PackStream.h(
@@ -498,29 +506,31 @@ class iso _TestPackStreamUnpackedStructure is UnitTest
     "spooked/bolt/v1/serialization/_PackStream/unpacked/Structure"
 
   fun apply(h: TestHelper) ? =>
-    var value: PackStreamStructure val
+    var value: CypherStructure val
     var pkd: ByteSeq
-    var unpkd: PackStreamStructure val
+    var unpkd: CypherStructure val
     // Struct(sig=0x01, fields=[1,2,3])
-    value = PackStreamStructure(0x01, [I64(1); I64(2); I64(3)])
+    value = CypherStructure(0x01, [I64(1); I64(2); I64(3)])
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure val
+    unpkd = _PackStream.unpacked(pkd)? as CypherStructure val
     h.assert_eq[U8](value.signature, unpkd.signature)
     h.assert_eq[USize](value.field_count(), unpkd.field_count())
-    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
     // Struct(sig=0x7F, fields=[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]
-    var fields = recover trn Array[PackStreamType val] end
+    var fields = recover trn Array[CypherType val] end
     fields
       .> push(I64(1)) .> push(I64(2)) .> push(I64(3)) .> push(I64(4))
       .> push(I64(5)) .> push(I64(6)) .> push(I64(7)) .> push(I64(8))
       .> push(I64(9)) .> push(I64(0)) .> push(I64(1)) .> push(I64(2))
       .> push(I64(3)) .> push(I64(4)) .> push(I64(5)) .> push(I64(6))
-    value = PackStreamStructure(0x7f, consume fields)
+    value = CypherStructure(0x7f, consume fields)
     pkd = _PackStream.packed([value])?
-    unpkd = _PackStream.unpacked(pkd)? as PackStreamStructure val
+    unpkd = _PackStream.unpacked(pkd)? as CypherStructure val
     h.assert_eq[U8](value.signature, unpkd.signature)
     h.assert_eq[USize](value.field_count(), unpkd.field_count())
-    h.assert_eq[U64](value._hashed_packed()?, unpkd._hashed_packed()?)
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
 
 class iso _TestClientMessageInit is UnitTest
   fun name(): String =>
@@ -528,13 +538,12 @@ class iso _TestClientMessageInit is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let user_agent: String = "MyClient/1.0"
-    let data = recover trn MapIs[PackStreamType val, PackStreamType val] end
+    let data = recover trn MapIs[CypherType val, CypherType val] end
     data("scheme") = "basic"
     data("principal") = "neo4j"
     data("credentials") = "secret"
-    let auth_map = PackStreamMap(consume data)
-    let msg_struct = InitMessage(user_agent, auth_map)
-    let pkd = _PackStream.packed([msg_struct])?
+    let auth_map = CypherMap(consume data)
+    let pkd = InitMessage(user_agent, auth_map)?
     let pkd_string = _PackStream.h(pkd)
     let sub_seq_asserts = [
       "B2:01" // B2 structure marker, signature of 0x01
@@ -554,10 +563,9 @@ class iso _TestClientMessageRun is UnitTest
   fun apply(h: TestHelper) ? =>
     let statement: String = "RETURN 1 AS num"
     let empty_map =
-      recover val MapIs[PackStreamType val, PackStreamType val] end
-    let parameters = PackStreamMap(consume empty_map)
-    let msg_struct = RunMessage(statement, parameters)
-    let pkd = _PackStream.packed([msg_struct])?
+      recover val MapIs[CypherType val, CypherType val] end
+    let parameters = CypherMap(consume empty_map)
+    let pkd = RunMessage(statement, parameters)?
     // Works only due to empty param map
     h.assert_eq[String](
       "B2:10:8F:52:45:54:55:52:4E:20:31:20:41:53:20:6E:75:6D:A0",
@@ -567,45 +575,45 @@ class iso _TestClientMessageDiscardAll is UnitTest
   fun name(): String =>
     "spooked/bolt/v1/serialization/messages/client/DiscardAllMessage"
 
-  fun apply(h: TestHelper) ? =>
-    let msg_struct = DiscardAllMessage()
-    let pkd = _PackStream.packed([msg_struct])?
+  fun apply(h: TestHelper) =>
+    // Returns message already encoded
+    let encoded = DiscardAllMessage()
     h.assert_eq[String](
       "B0:2F",
-      _PackStream.h(pkd))
+      _PackStream.h(encoded))
 
 class iso _TestClientMessagePullAll is UnitTest
   fun name(): String =>
     "spooked/bolt/v1/serialization/messages/client/PullAllMessage"
 
-  fun apply(h: TestHelper) ? =>
-    let msg_struct = PullAllMessage()
-    let pkd = _PackStream.packed([msg_struct])?
+  fun apply(h: TestHelper) =>
+    // Returns message already encoded
+    let encoded = PullAllMessage()
     h.assert_eq[String](
       "B0:3F",
-      _PackStream.h(pkd))
+      _PackStream.h(encoded))
 
 class iso _TestClientMessageAckFailure is UnitTest
   fun name(): String =>
     "spooked/bolt/v1/serialization/messages/client/AckFailureMessage"
 
-  fun apply(h: TestHelper) ? =>
-    let msg_struct = AckFailureMessage()
-    let pkd = _PackStream.packed([msg_struct])?
+  fun apply(h: TestHelper) =>
+    // Returns message already encoded
+    let encoded = AckFailureMessage()
     h.assert_eq[String](
       "B0:0E",
-      _PackStream.h(pkd))
+      _PackStream.h(encoded))
 
 class iso _TestClientMessageReset is UnitTest
   fun name(): String =>
     "spooked/bolt/v1/serialization/messages/client/ResetMessage"
 
-  fun apply(h: TestHelper) ? =>
-    let msg_struct = ResetMessage()
-    let pkd = _PackStream.packed([msg_struct])?
+  fun apply(h: TestHelper) =>
+    // Returns message already encoded
+    let encoded = ResetMessage()
     h.assert_eq[String](
       "B0:0F",
-      _PackStream.h(pkd))
+      _PackStream.h(encoded))
 
 /*
 _TestServerMessageRecord

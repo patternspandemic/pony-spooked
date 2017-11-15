@@ -5,7 +5,7 @@ class Request
 /*
   new create(
     desc: String,
-    message_structure: PackStreamStructure)
+    message_structure: CypherStructure)
   =>
     description = desc
     data =

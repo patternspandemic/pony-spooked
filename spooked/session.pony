@@ -51,14 +51,24 @@ actor Session
 
   be _go_ahead() =>
     _notify(this)
+    match _connection
+    | let c: BoltConnection tag =>
+      c.flush()
+    end
 
-  // fun ref run()
+  be run(
+    statement: String val,
+    parameters: CypherMap val)
+  =>
+    """Pass a Cypher statement for execution on the server."""
+    match _connection
+    | let c: BoltConnection tag =>
+      c._run(statement, parameters)
+    end
 
   // fun ref begin_transaction()
   // fun ref read_transaction()
   // fun ref write_transaction()
-
-  // be reset()
 
   be _error(err: _BoltConnectionError) =>
     """"""

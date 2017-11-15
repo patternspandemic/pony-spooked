@@ -21,7 +21,7 @@ type _BoltConnectionError is
 actor _BoltConnectionPool
   let _logger: Logger[String] val
   let _net_auth: NetAuth val
-  let _config: _Configuration val
+  let _config: Configuration val
   let _host: String val
   let _port: String val
   // let _connections: Array[BoltConnection iso]
@@ -31,7 +31,7 @@ actor _BoltConnectionPool
   new create(
     host: String val,
     port: U16 val,
-    config: _Configuration val,
+    config: Configuration val,
     net_auth: NetAuth val,
     logger: Logger[String] val)
   =>
@@ -80,7 +80,7 @@ actor _BoltConnectionPool
 actor BoltConnection
   let _logger: Logger[String] val
   let _net_auth: NetAuth val
-  let _config: _Configuration val
+  let _config: Configuration val
   let _host: String val
   let _port: String val
   // var _ssl_context: (SSLContext | None) = None
@@ -93,7 +93,7 @@ actor BoltConnection
     session: Session tag,
     host: String val,
     port: String val,
-    config: _Configuration val,
+    config: Configuration val,
     net_auth: NetAuth val,
     logger: Logger[String] val)
   =>
@@ -119,14 +119,20 @@ actor BoltConnection
   //   | let s: Session tag => s._auth_failed()
   //   end
 
-  be _protocol_error() =>
+  be _init_failed() =>
+    // TODO: [BoltConnection] _init_failed
+    //    This Failure will carry with it metadata!
+    None
+
+  // Must be public for sub-package access.
+  be protocol_error() =>
     match _session
     | let s: Session tag => s._error(ProtocolError)
     end
 
   be _version_negotiation_failed() =>
     // TODO: [BoltConnection] Cleanup? Server closes connection,
-    //    Likely will get callbakc to _closed
+    //    Likely will get callback to _closed
     match _session
     | let s: Session tag => s._error(UnsupportedProtocolVersion)
     end
@@ -146,7 +152,7 @@ actor BoltConnection
     | let c: TCPConnection =>
       let bolt_messenger = BoltV1Messenger(this, c, _logger)
       c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
-      bolt_messenger.init()
+      bolt_messenger.init(_config)
       _bolt_messenger = bolt_messenger
     end
     match _session
@@ -221,7 +227,7 @@ interface BoltConnectionNotify
 interface BoltMessenger
   """
   """
-  be init()
+  be init(config: Configuration val)
     """Initialize the Bolt connection."""
   be add_statement()
     """Add a Cypher statement to be run by the server."""

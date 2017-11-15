@@ -70,8 +70,10 @@ actor Session
   // fun ref read_transaction()
   // fun ref write_transaction()
 
+  // TODO: [Session] _error
   be _error(err: _BoltConnectionError) =>
     """"""
+    // Probably reset/dispose dep on error.
     // match err
     // | ...
     // end

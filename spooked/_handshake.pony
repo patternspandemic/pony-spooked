@@ -114,7 +114,7 @@ class _Handshake is TCPConnectionNotify
       end
     else
       // Server sent us something unexpected.
-      _connection._protocol_error()
+      _connection.protocol_error()
     end
     false
 

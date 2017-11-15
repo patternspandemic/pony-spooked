@@ -6,7 +6,7 @@ class val ConnectionSettings
   """
   Public side Neo4j driver configuration.
   """
-  let _config': _Configuration val
+  let _config': Configuration val
 
   new val create(
     user: String,
@@ -25,7 +25,8 @@ class val ConnectionSettings
     max_retry_time_ms: U64 = 15_000 // 15 seconds, 0 -> no retry
     )
   =>
-    var auth_map: Map[String, String] trn = recover trn auth_map.create() end
+    var auth_map =
+      recover trn MapIs[CypherType val, CypherType val] end
     auth_map("scheme") = "basic"
     auth_map("principal") = user
     auth_map("credentials") = password
@@ -33,7 +34,7 @@ class val ConnectionSettings
     | let value: String => auth_map("realm") = value
     end
 
-    let config: _Configuration trn =
+    let config: Configuration trn =
       config.create(consume auth_map)
     config.user_agent = user_agent
     config.encrypted = encrypted
@@ -52,16 +53,16 @@ class val ConnectionSettings
 
     _config' = consume config
 
-  fun _config(): _Configuration val =>
+  fun _config(): Configuration val =>
     _config'
 
 
-class _Configuration
+class Configuration
   """
   Internal Neo4j driver configuration.
   """
   /* Authentication */
-  var auth: Map[String, String] val
+  var auth: CypherMap val
   var user_agent: String =
     Spooked.agent_string() + "/" + Spooked.version_string()
   /* Encryption */
@@ -81,8 +82,8 @@ class _Configuration
   /* Cached INIT Request 
   var _init_request: (_Request val | None) = None */
 
-  new trn create(auth': Map[String, String] val) =>
-    auth = auth'
+  new trn create(auth': MapIs[CypherType val, CypherType val] val) =>
+    auth = CypherMap(auth')
 
 /*
   fun init_request(): _Request val =>

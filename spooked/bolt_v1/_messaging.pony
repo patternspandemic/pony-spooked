@@ -116,10 +116,15 @@ actor BoltV1Messenger is BoltMessenger
     _tcp_conn = tcp_conn
     _bolt_conn = bolt_conn
 
-  be init() =>
+  be init(config: Configuration val) =>
     """Initialize the Bolt connection."""
     // TODO: [BoltV1Messenger] init
-    None
+    try
+      _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
+    else
+      // Unable to initialize connection
+      _bolt_conn.protocol_error()
+    end
 
   be add_statement() =>
     """Add a Cypher statement to be run by the server."""

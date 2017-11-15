@@ -23,7 +23,7 @@ actor Driver
     scheme: String val,
     host: String val,
     port: U16 val,
-    config: _Configuration val,
+    config: Configuration val,
     net_auth: NetAuth val,
     logger: Logger[String] val)
   =>

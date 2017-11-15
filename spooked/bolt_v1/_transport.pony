@@ -29,7 +29,14 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     """Handled by previous _Handshake notify object."""
     None
 
-  // sent
+  fun ref sent(
+    conn: TCPConnection ref,
+    data: (String val | Array[U8 val] val))
+    : (String val | Array[U8 val] val)
+  =>
+    // TODO: [BoltV1ConnectionNotify] sent
+    data
+
   // sentv ?
   // received
   // expect ?

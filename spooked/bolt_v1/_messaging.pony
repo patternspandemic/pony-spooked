@@ -98,11 +98,7 @@ primitive IGNORED
 
 
 actor BoltV1Messenger is BoltMessenger
-  """
-  Creates Bolt v1 protocol messages and sends them to the underlying
-  TCP connection. They are however first encoded via the related
-  BoltV1ConnectionNotify object which handles message transport.
-  """
+  """ Creates and processes Bolt v1 protocol messages. """
   let _logger: Logger[String] val
   let _tcp_conn: TCPConnection tag
   let _bolt_conn: BoltConnection tag
@@ -129,15 +125,17 @@ actor BoltV1Messenger is BoltMessenger
   be add_statement(statement: String val, parameters: CypherMap val) =>
     """Add a Cypher statement to be run by the server."""
     // TODO: [BoltV1Messenger] add_statement
+    // Pipeline RUN statements and later writev them in flush()
     None
 
   be flush() =>
     """Send all pipelined messages through the connection."""
     // TODO: [BoltV1Messenger] flush
+    // _tcp_conn.writev all pipelined statements..
     None
 
   be reset() =>
     // TODO: [BoltV1Messenger] reset
     _logger(Info) and _logger.log(
       "[Spooked] Info: Sending RESET to server...")
-    _bolt_conn.successfully_reset() // Would notify send this back?
+    _bolt_conn.successfully_reset() // TMP. Would notify send this back?

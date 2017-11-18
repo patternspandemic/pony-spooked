@@ -35,9 +35,20 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     data: (String val | Array[U8 val] val))
     : (String val | Array[U8 val] val)
   =>
+    """ Encode a message written to the connection. """
     _encode_message(data)
 
-  // sentv ?
+  fun ref sentv(
+    conn: TCPConnection ref,
+    data: ByteSeqIter val)
+    : ByteSeqIter val
+  =>
+    """ Encode a sequence of messages written to the connection. """
+    let encoded_seq = recover trn Array[ByteSeq] end
+    for seq_data in data.values() do
+      encoded_seq.push(_encode_message(seq_data))
+    end
+    consume encoded_seq
 
   // received - keep receiving for a complete message, then act on it.
   //    Pass back to _messenger? (seen it may have to send ACK_FAILURE in resp.)
@@ -61,7 +72,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
       | let data': Array[U8] val => data'
       | let data': String => data'.array()
       end
-    var encoded = recover trn Array[U8 val] end
+    let encoded = recover trn Array[U8 val] end
 
     // Encode a packed message into chunks of max size.
     for from in Range(0, msg_data.size(), BoltTransport.max_chunk_size()) do

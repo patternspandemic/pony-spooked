@@ -53,6 +53,20 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
   // received - keep receiving for a complete message, then act on it.
   //    Pass back to _messenger? (seen it may have to send ACK_FAILURE in resp.)
   //    Also keeps things in this sub-package until response complete
+  fun ref received(
+    conn: TCPConnection ref,
+    data: Array[U8 val] iso,
+    times: USize val)
+    : Bool val
+  =>
+    """
+    Receive exactly one message from the server and then yeild
+    """
+    // Going to be tricky, cannot use expect as thought about before.
+    // Good news is the first two bytes are the chunk header..
+    // Will need to keep a buffer to add message chunks to until you
+    // encounter a message boundary. Will be tricky when receiving part
+    // of a new message in the latter part of received data.
 
   // expect ?
 

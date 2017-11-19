@@ -64,9 +64,9 @@ class _Handshake is TCPConnectionNotify
   fun ref connected(conn: TCPConnection ref) =>
     _logger(Info) and _logger.log(
       "[Spooked] Info: Performing handshake...")
+    conn.expect(4)
     conn.write(_GoGoBolt())
     conn.write(_ProposedProtocolVersions())
-    conn.expect(4)
 
   fun ref received(
     conn: TCPConnection ref,

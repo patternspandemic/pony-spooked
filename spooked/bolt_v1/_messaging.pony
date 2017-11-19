@@ -114,8 +114,8 @@ actor BoltV1Messenger is BoltMessenger
 
   be init(config: Configuration val) =>
     """Initialize the Bolt connection."""
-    // TODO: [BoltV1Messenger] init
     try
+      // Send an INIT message
       _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
     else
       // Unable to initialize connection

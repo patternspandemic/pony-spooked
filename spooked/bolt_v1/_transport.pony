@@ -15,6 +15,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
   let _connection: BoltConnection tag
   let _messenger: BoltV1Messenger tag
   let _wb: Writer
+  let _rb: Reader
 
   new iso create(
     connection: BoltConnection tag,
@@ -25,6 +26,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     _messenger = messenger
     _logger = logger
     _wb = Writer
+    _rb = Reader
 
   fun ref connect_failed(conn: TCPConnection ref) =>
     """Handled by previous _Handshake notify object."""
@@ -60,13 +62,12 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     : Bool val
   =>
     """
-    Receive exactly one message from the server and then yeild
+    Continue to receive data until all chunks describing a single message have
+    arrived, then yeild.
     """
-    // Going to be tricky, cannot use expect as thought about before.
-    // Good news is the first two bytes are the chunk header..
-    // Will need to keep a buffer to add message chunks to until you
-    // encounter a message boundary. Will be tricky when receiving part
-    // of a new message in the latter part of received data.
+    _rb.append(consume data)
+    // .. read for header, etc.
+    true
 
   // expect ?
 

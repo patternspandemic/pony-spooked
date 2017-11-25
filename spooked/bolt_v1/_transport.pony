@@ -27,9 +27,10 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
   let _connection: BoltConnection tag
   let _messenger: BoltV1Messenger tag
   let _wb: Writer
+
   let _rb: Reader
   var _receive_state: MessageReceiveState
-  var _current_message: Array[U8 val] trn
+  var _current_message_data: Array[U8 val] trn
   var _chunk_size: USize
 
   new iso create(
@@ -43,7 +44,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     _wb = Writer
     _rb = Reader
     _receive_state = AwaitingChunk
-    _current_message = recover trn Array[U8 val] end
+    _current_message_data = recover trn Array[U8 val] end
     _chunk_size = 0
 
   fun ref connect_failed(conn: TCPConnection ref) =>
@@ -69,58 +70,6 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
       encoded_seq.push(_encode_message(seq_data))
     end
     consume encoded_seq
-
-  // received - keep receiving for a complete message, then act on it.
-  //    Pass back to _messenger? (seen it may have to send ACK_FAILURE in resp.)
-  //    Also keeps things in this sub-package until response complete
-  fun ref received(
-    conn: TCPConnection ref,
-    data: Array[U8 val] iso,
-    times: USize val)
-    : Bool val
-  =>
-    """
-    Continue to receive data until all chunks describing a single message have
-    arrived, then yeild.
-    """
-    // Add received data to the read buffer.
-    _rb.append(consume data)
-    
-    try
-      match _receive_state
-      | AwaitingChunk =>
-        if _rb.size() >= 2 then
-          // Whole chunk header available
-          _handle_header(_rb.u16_be())
-        else
-          // Only one byte available, waiting
-          // on second byte of header.
-          _receive_state = InHeader
-          true // Keep receiving
-        end
-
-      | InHeader =>
-// TODO: Combine with above..?
-        _handle_header(_rb.u16_be())
-
-      | InChunk =>
-        _handle_chunk()
-
-      // else
-      //   false // Stop receiving
-      end
-    else
-      // TODO: Protocol error?
-      false
-    end
-
-  // expect ?
-
-  fun ref closed(conn: TCPConnection ref) =>
-    _connection.closed()
-
-  // throttled ?
-  // unthrottled ?
 
   fun ref _encode_message(
     data: ByteSeq)
@@ -149,27 +98,97 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
 
     consume encoded
 
-  fun ref _handle_header(header: U16 val): Bool =>
-    // TODO: [BoltV1ConnectionNotify] _handle_header
-    if header == 0 then
-      // Message boundary,
-      // Complete message handling, send back to messenger...
-      // Set state back to AwaitingChunk
-      
-      false // Stop receiving
+  fun ref received(
+    conn: TCPConnection ref,
+    data: Array[U8 val] iso,
+    times: USize val)
+    : Bool val
+  =>
+    """
+    Process as many chunks & assemble as many messages as are contained in _rb
+    """
+    // Add received data to the read buffer.
+    _rb.append(consume data)
+
+    var process_rb = true
+
+    while process_rb do
+      process_rb =
+        match _receive_state
+        | AwaitingChunk =>
+          if _rb.size() >= 2 then
+            // Whole chunk header available
+            _handle_header()
+          else
+            // Only one byte available, waiting
+            // on second byte of header.
+            _receive_state = InHeader
+            false // Done processing _rb
+          end
+        | InHeader =>
+          // Rest of chunk header available
+          _handle_header()
+        | InChunk =>
+          // Handle chunk data
+          _handle_chunk()
+        end
+    end
+    true // Keep receiving
+
+  fun ref _handle_header(): Bool =>
+    try
+      let header = _rb.u16_be()?
+
+      if header == BoltTransport.message_boundary() then
+        // Message boundary (end of message),
+        _handle_message()
+        _receive_state = AwaitingChunk
+      else
+        // A new chunk has arrived
+        _chunk_size = header.usize()
+        _receive_state = InChunk
+      end
+    end
+
+    if _rb.size() > 0 then
+      true // Keep processing received data
     else
-      _chunk_size = header.usize()
-      _receive_state = InChunk
-      true // Keep receiving
+      false // Done processing _rb
     end
 
   fun ref _handle_chunk(): Bool =>
-    // TODO: [BoltV1ConnectionNotify] _handle_chunk
     if _chunk_size <= _rb.size() then
-      // Read buffer contains at least current chunk.
+      // Read buffer contains at least the current chunk.
       // Move the chunk's data into _current_message.
-      let chunk_data = recover val _rb.block(_chunk_size)? end
-      _current_message.append(chunk_data)
-      // Await the next chunk / msg boundary
-      _receive_state = AwaitingChunk
-    end // Otherwise, waiting on the rest of the chunk.
+      try
+        let chunk_data: Array[U8] val = _rb.block(_chunk_size)?
+        _current_message_data.append(chunk_data)
+        // Expect the next chunk / msg boundary
+        _receive_state = AwaitingChunk
+      end
+
+      if _rb.size() > 0 then
+        true // Keep processing received data
+      else
+        false // Done processing _rb
+      end
+    else
+       // Haven't yet received all of chunk data
+      false // Done processing _rb
+    end
+
+  fun ref _handle_message() =>
+    // TODO: [BoltV1ConnectionNotify] _handle_message
+    try
+      let packed_message = _current_message_data = recover trn Array[U8 val] end
+      let message: CypherStructure val =
+        _PackStream.unpacked(consume packed_message)? as CypherStructure val
+      // TODO: Send message onto messenger for handling?
+    end
+
+  fun ref closed(conn: TCPConnection ref) =>
+    _connection.closed()
+
+  // expect ?
+  // throttled ?
+  // unthrottled ?

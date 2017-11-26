@@ -22,7 +22,8 @@ type MessageReceiveState is
 
 
 class BoltV1ConnectionNotify is TCPConnectionNotify
-  """ Notify for active TCP connections speaking Bolt protocol v1. """
+  """ Notifiers for active TCP connections speaking Bolt protocol v1. """
+
   let _logger: Logger[String] val
   let _connection: BoltConnection tag
   let _messenger: BoltV1Messenger tag
@@ -48,7 +49,10 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     _chunk_size = 0
 
   fun ref connect_failed(conn: TCPConnection ref) =>
-    """Handled by previous _Handshake notify object."""
+    """
+    Connection failure is purposely ignored, as this notifier is only set
+    after successful connection.
+    """
     None
 
   fun ref sent(
@@ -56,7 +60,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     data: (String val | Array[U8 val] val))
     : (String val | Array[U8 val] val)
   =>
-    """ Encode a message written to the connection. """
+    """ Encode a packed message written to the connection into chunks. """
     _encode_message(data)
 
   fun ref sentv(
@@ -64,7 +68,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     data: ByteSeqIter val)
     : ByteSeqIter val
   =>
-    """ Encode a sequence of messages written to the connection. """
+    """ Encode packed messages written to the connection into chunks. """
     let encoded_seq = recover trn Array[ByteSeq] end
     for seq_data in data.values() do
       encoded_seq.push(_encode_message(seq_data))
@@ -105,17 +109,20 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     : Bool val
   =>
     """
-    Process as many chunks & assemble as many messages as are contained in _rb
+    Append data received into a read buffer, from which, process as many
+    chunks and assemble as many messages as are contained in that buffer.
     """
-    // Add received data to the read buffer.
     _rb.append(consume data)
 
+    // A flag to mark whether there is more to process in _rb
     var process_rb = true
 
     while process_rb do
       process_rb =
         match _receive_state
         | AwaitingChunk =>
+          // Awaiting a chunk that is either the start of a message or part of
+          // a message currently being collected through receives.
           if _rb.size() >= 2 then
             // Whole chunk header available
             _handle_header()
@@ -126,21 +133,25 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
             false // Done processing _rb
           end
         | InHeader =>
-          // Rest of chunk header available
+          // So far only half a chunk header has been confirmed. At this point,
+          // at least the rest of the chunk header is available.
           _handle_header()
         | InChunk =>
-          // Handle chunk data
+          // The size of the chunk's data is known. Handle data belonging to
+          // the chunk, either waiting for more data to fill the read buffer,
+          // or appending all the chunk's data into the current message buffer.
           _handle_chunk()
         end
     end
     true // Keep receiving
 
   fun ref _handle_header(): Bool =>
+    """ Act on a header read from the read buffer. """
     try
       let header = _rb.u16_be()?
 
       if header == BoltTransport.message_boundary() then
-        // Message boundary (end of message),
+        // End of message detected
         _handle_message()
         _receive_state = AwaitingChunk
       else
@@ -157,9 +168,10 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     end
 
   fun ref _handle_chunk(): Bool =>
+    """ Act on chunk data. """
     if _chunk_size <= _rb.size() then
       // Read buffer contains at least the current chunk.
-      // Move the chunk's data into _current_message.
+      // Move the chunk's data into _current_message_data.
       try
         let chunk_data: Array[U8] val = _rb.block(_chunk_size)?
         _current_message_data.append(chunk_data)
@@ -178,11 +190,13 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     end
 
   fun ref _handle_message() =>
-    // TODO: [BoltV1ConnectionNotify] _handle_message
+    """ Act on a completely received message. """
     try
+      // Unpack the message into a CypherStructure
       let packed_message = _current_message_data = recover trn Array[U8 val] end
       let message: CypherStructure val =
         _PackStream.unpacked(consume packed_message)? as CypherStructure val
+      // Send it on to the messenger for response processing.
       _messenger._handle_response_message(message)
     end
 

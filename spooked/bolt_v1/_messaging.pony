@@ -15,6 +15,7 @@ type ClientRequest is
   | RESET
   )
 
+
 primitive INIT
   fun apply(): U8 => 0x01
   fun string(): String => "INIT"
@@ -102,8 +103,8 @@ primitive RECORD
   fun apply(): U8 => 0x71
   fun string(): String => "RECORD"
 
-
-class Response
+// TODO: [ResponseHandler] Special handling for resets
+class ResponseHandler
   let _logger: Logger[String] val
   let _bolt_conn: BoltConnection tag
 
@@ -124,7 +125,7 @@ class Response
 
   fun ref apply(message: ServerResponse, data: (CypherMap | CypherList)) =>
     """ Process the unpacked server response message. """
-    // TODO: [Response] apply
+    // TODO: [ResponseHandler] apply
 
   // on_success
   // on_failure
@@ -139,7 +140,10 @@ actor BoltV1Messenger is BoltMessenger
   let _tcp_conn: TCPConnection tag
   let _bolt_conn: BoltConnection tag
 
-  let _responses: Array[Response]
+  // Pipelined client messages, packed ready for transport
+  let _requests: Array[ByteSeq]
+  // Ordered response handlers for incoming server messages
+  let _responses: Array[ResponseHandler]
 
   new create(
     bolt_conn: BoltConnection tag,
@@ -149,14 +153,15 @@ actor BoltV1Messenger is BoltMessenger
     _logger = logger
     _tcp_conn = tcp_conn
     _bolt_conn = bolt_conn
-    _responses = Array[Response]
+    _requests = Array[ByteSeq]
+    _responses = Array[ResponseHandler]
 
   be init(config: Configuration val) =>
     """Initialize the Bolt connection."""
     try
-      // Send an INIT message
+      // Send an INIT message immediately
       _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
-      _responses.push(Response(INIT, _bolt_conn, _logger))
+      _responses.push(ResponseHandler(INIT, _bolt_conn, _logger))
     else
       // Unable to initialize connection
       _bolt_conn.protocol_error()

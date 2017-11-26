@@ -183,7 +183,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
       let packed_message = _current_message_data = recover trn Array[U8 val] end
       let message: CypherStructure val =
         _PackStream.unpacked(consume packed_message)? as CypherStructure val
-      // TODO: Send message onto messenger for handling?
+      _messenger._handle_response_message(message)
     end
 
   fun ref closed(conn: TCPConnection ref) =>

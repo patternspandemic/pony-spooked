@@ -85,6 +85,7 @@ type ServerResponse is
   | FAILURE
   | IGNORED
   | RECORD
+  | UNEXPECTED
   )
 
 primitive SUCCESS
@@ -102,6 +103,8 @@ primitive IGNORED
 primitive RECORD
   fun apply(): U8 => 0x71
   fun string(): String => "RECORD"
+
+primitive UNEXPECTED
 
 // TODO: [ResponseHandler] Special handling for resets
 class ResponseHandler
@@ -123,7 +126,10 @@ class ResponseHandler
     _bolt_conn = bolt_conn
     _request = request
 
-  fun ref apply(message: ServerResponse, data: (CypherMap | CypherList)) =>
+  fun ref apply(
+    message: ServerResponse,
+    data: (CypherMap val | CypherList val | None))
+  =>
     """ Process the unpacked server response message. """
     // TODO: [ResponseHandler] apply
 
@@ -131,7 +137,8 @@ class ResponseHandler
   // on_failure
   // on_ignored
   // on_record
-  // complete
+  fun complete(): Bool =>
+    _metadata isnt None
 
 
 actor BoltV1Messenger is BoltMessenger
@@ -143,7 +150,7 @@ actor BoltV1Messenger is BoltMessenger
   // Pipelined client messages, packed ready for transport
   let _requests: Array[ByteSeq]
   // Ordered response handlers for incoming server messages
-  let _responses: Array[ResponseHandler]
+  let _response_handlers: Array[ResponseHandler]
 
   new create(
     bolt_conn: BoltConnection tag,
@@ -154,14 +161,14 @@ actor BoltV1Messenger is BoltMessenger
     _tcp_conn = tcp_conn
     _bolt_conn = bolt_conn
     _requests = Array[ByteSeq]
-    _responses = Array[ResponseHandler]
+    _response_handlers = Array[ResponseHandler]
 
   be init(config: Configuration val) =>
     """Initialize the Bolt connection."""
     try
       // Send an INIT message immediately
       _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
-      _responses.push(ResponseHandler(INIT, _bolt_conn, _logger))
+      _response_handlers.push(ResponseHandler(INIT, _bolt_conn, _logger))
     else
       // Unable to initialize connection
       _bolt_conn.protocol_error()
@@ -187,4 +194,50 @@ actor BoltV1Messenger is BoltMessenger
 
   be _handle_response_message(message: CypherStructure val) =>
     """ Handle a message response from the server. """
-    // TODO: [BoltV1Messenger] _handle_response_message
+    // Determine the type of server message
+    let server_response =
+      match message.signature
+      | SUCCESS() => SUCCESS
+      | FAILURE() => FAILURE
+      | IGNORED() => IGNORED
+      | RECORD()  => RECORD
+      else
+        UNEXPECTED
+      end
+
+    // Extract the data as expected from message type
+    try
+      let data =
+        match message.fields
+        | let flds: Array[CypherType val] val =>
+          if server_response is RECORD then
+            // Record data is a list
+            flds(0)? as CypherList val
+          else
+            // Success, Failure, and Ignored data is a map
+            flds(0)? as CypherMap val
+          end
+        else
+          // TODO: [BoltV1Messenger] _handle_response_message
+          //    message.fields is unexpected type / None. There may
+          //    be a chance IGNORED provides no data?
+          // CypherMap.empty() // TODO: cache
+          None
+        end
+
+      // Reference the current response handler, and apply to it the response
+      // type and data of the received message.
+      let current_handler = _response_handlers(0)?
+      current_handler(server_response, data)
+
+      // If the handler has completed its work, remove it from the handlers.
+      if current_handler.complete() then
+        _response_handlers.shift()?
+      end
+
+    else
+      // TODO: [BoltV1Messenger] _handle_response_message
+      //    Unexpected problem with extracted structure field
+      //    or no response handler available.
+      None
+    end

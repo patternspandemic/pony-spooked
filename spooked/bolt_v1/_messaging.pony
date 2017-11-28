@@ -106,7 +106,9 @@ primitive RECORD
 
 primitive UNEXPECTED
 
-// TODO: [ResponseHandler] Special handling for resets
+// TODO: [ResponseHandler]
+//  Special handling for resets
+//  Logging of applied messages
 class ResponseHandler
   let _logger: Logger[String] val
   let _bolt_conn: BoltConnection tag
@@ -132,11 +134,36 @@ class ResponseHandler
   =>
     """ Process the unpacked server response message. """
     // TODO: [ResponseHandler] apply
+    try
+      match message
+      | SUCCESS => on_success(data as CypherMap)
+      | FAILURE => on_failure(data as CypherMap)
+      | IGNORED => on_ignored(data as CypherMap)
+      | RECORD  =>  on_record(data as CypherList)
+      | UNEXPECTED =>
+        // TODO: [ResponseHandler] apply, UNEXPECTED match
+        //  Protocol error
+      end
+    end
 
-  // on_success
-  // on_failure
-  // on_ignored
-  // on_record
+  fun ref on_success(data: CypherMap val) =>
+    _metadata = data
+    _ignored = false
+    // TODO: Notify _bolt_conn of success w/metadata
+
+  fun ref on_failure(data: CypherMap val) =>
+    _metadata = data
+    _ignored = false
+    // TODO: Notify _bolt_conn of failure w/metadata
+
+  fun ref on_ignored(data: CypherMap val) =>
+    _metadata = data
+    _ignored = true
+    // TODO: Notify _bolt_conn of ignore? w/metadata
+
+  fun ref on_record(data: CypherList val) =>
+    // TODO: Notify _bolt_conn of record
+
   fun complete(): Bool =>
     _metadata isnt None
 
@@ -202,6 +229,7 @@ actor BoltV1Messenger is BoltMessenger
       | IGNORED() => IGNORED
       | RECORD()  => RECORD
       else
+        // TODO: Log unexpected message signature
         UNEXPECTED
       end
 

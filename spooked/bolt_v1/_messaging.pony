@@ -142,7 +142,8 @@ class ResponseHandler
       | RECORD  =>  on_record(data as CypherList)
       | UNEXPECTED =>
         // TODO: [ResponseHandler] apply, UNEXPECTED match
-        //  Protocol error
+        //  Other cleanup?
+        _bolt_conn.protocol_error()
       end
     end
 
@@ -166,6 +167,11 @@ class ResponseHandler
 
   fun complete(): Bool =>
     _metadata isnt None
+
+  fun finish() =>
+    // TODO: [ResponseHandler] finish
+    //  Send complete response metadata on to the bolt connection,
+    //  based on the request that initiated the response.
 
 
 actor BoltV1Messenger is BoltMessenger
@@ -253,13 +259,16 @@ actor BoltV1Messenger is BoltMessenger
           None
         end
 
-      // Reference the current response handler, and apply to it the response
-      // type and data of the received message.
+      // Reference the current response handler, and apply to it
+      // the response type and data of the received message.
       let current_handler = _response_handlers(0)?
       current_handler(server_response, data)
 
-      // If the handler has completed its work, remove it from the handlers.
+      // If the handler has completed its work, call finish on it to send
+      // response metadata on to the bolt connection, then remove it from the
+      // handlers.
       if current_handler.complete() then
+        current_handler.finish()
         _response_handlers.shift()?
       end
 

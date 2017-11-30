@@ -151,11 +151,24 @@ class ResponseHandler
     _metadata = data
     _ignored = false
     // TODO: Notify _bolt_conn of success w/metadata
+    //  INIT
+    //  ACK_FAILURE
+    //  RESET
+    //  RUN
+    //  DISCARD_ALL
+    //  PULL_ALL
 
   fun ref on_failure(data: CypherMap val) =>
     _metadata = data
     _ignored = false
-    // TODO: Notify _bolt_conn of failure w/metadata
+    // TODO: Notify _bolt_conn of failure w/metadata, ACK_FAILURE needs to be
+    //    sent unless request was ACK_FAILURE
+    //  INIT
+    //  ACK_FAILURE
+    //  RESET
+    //  RUN
+    //  DISCARD_ALL
+    //  PULL_ALL
 
   fun ref on_ignored(data: CypherMap val) =>
     _metadata = data
@@ -163,15 +176,12 @@ class ResponseHandler
     // TODO: Notify _bolt_conn of ignore? w/metadata
 
   fun ref on_record(data: CypherList val) =>
+    _ignored = false
     // TODO: Notify _bolt_conn of record
+    //  PULL_ALL
 
   fun complete(): Bool =>
     _metadata isnt None
-
-  fun finish() =>
-    // TODO: [ResponseHandler] finish
-    //  Send complete response metadata on to the bolt connection,
-    //  based on the request that initiated the response.
 
 
 actor BoltV1Messenger is BoltMessenger
@@ -264,11 +274,8 @@ actor BoltV1Messenger is BoltMessenger
       let current_handler = _response_handlers(0)?
       current_handler(server_response, data)
 
-      // If the handler has completed its work, call finish on it to send
-      // response metadata on to the bolt connection, then remove it from the
-      // handlers.
+      // If the handler has completed its work, remove it from the handlers.
       if current_handler.complete() then
-        current_handler.finish()
         _response_handlers.shift()?
       end
 

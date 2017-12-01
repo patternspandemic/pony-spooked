@@ -202,6 +202,7 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
 
   fun ref closed(conn: TCPConnection ref) =>
     _connection.closed()
+    // TODO: Set _connection, _messenger to None?
 
   // expect ?
   // throttled ?

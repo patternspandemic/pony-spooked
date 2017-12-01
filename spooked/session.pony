@@ -38,12 +38,14 @@ actor Session
     //    call _notify.service_unavailable?
     _connection_pool.acquire(this)
 
+  be _retry_acquire() =>
+    _connection_pool.acquire(this)
+    // TODO: [Session] _retry_acquire: Reset timeout? Prob not.
+
   be _receive_connection(
-    // connection: BoltConnection iso,
     connection: BoltConnection tag,
     go_ahead: Bool)
   =>
-    // _connection = consume connection
     _connection = connection
     if go_ahead then
       _go_ahead()

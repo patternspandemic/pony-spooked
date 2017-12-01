@@ -40,20 +40,22 @@ actor _BoltConnectionPool
     _config = config
     _host = host
     _port = port.string()
-    // _connections = Array[BoltConnection iso].create()
     _connections = Array[BoltConnection tag].create()
 
   be acquire(session: Session tag) =>
     """Send a BoltConnection to session."""
     try
-      // let connection: BoltConnection iso = _connections.shift()?
       let connection: BoltConnection tag = _connections.shift()?
+      // TODO: Cleanup comment
+      //       Have the connection send itself to the session, since the session
+      //       is set on the connection (which should know if it's closed). Then
+      //       the connection can tell the session whether to request another
+      //       connection from the pool.
       connection._set_session(session)
-      session._receive_connection(/*consume*/ connection, true)
     else
-      let connection: BoltConnection tag = //iso =
+      let connection: BoltConnection tag =
         BoltConnection(session, _host, _port, _config, _net_auth, _logger)
-      session._receive_connection(/*consume*/ connection, false)
+      session._receive_connection(connection, false)
     end
 
   be release(connection: BoltConnection tag) =>
@@ -119,11 +121,6 @@ actor BoltConnection
   //   | let s: Session tag => s._auth_failed()
   //   end
 
-  be _init_failed() =>
-    // TODO: [BoltConnection] _init_failed
-    //    This Failure will carry with it metadata!
-    None
-
   // Must be public for sub-package access.
   be protocol_error() =>
     match _session
@@ -159,6 +156,11 @@ actor BoltConnection
     | let s: Session tag => s._go_ahead()
     end
 
+/*
+  // Must be public for sub-package access.
+  be successfully_init() =>
+*/
+
   be _run(
     statement: String val,
     parameters: CypherMap val)
@@ -179,13 +181,22 @@ actor BoltConnection
   // Must be public for sub-package access.
   be closed() =>
     _conn = None
+    _bolt_messenger = None
     match _session
     | let s: Session tag => s._closed()
     end
 
   be _set_session(session: Session) =>
     if _session is None then
-      _session = session
+      if _conn is None then
+        // Server closed on this pooled BoltConnection.
+        session._retry_acquire()
+      else
+        // Accept the session and send this BoltConnection
+        // to it signalling to go ahead.
+        session._receive_connection(this, true)
+        _session = session
+      end
     end
 
   be _clear_session() =>
@@ -209,20 +220,6 @@ actor BoltConnection
     | let c: TCPConnection => c.dispose()
     end
 
-/*
-  Don't think I'll need this, interface will be with the
-  messaging side of things.
-
-interface BoltConnectionNotify
-  """
-  Notifications for a versioned Bolt protocol.
-  """
-  be reset()
-    """
-    Reset the Bolt connection. Calls _successfully_reset on the BoltConnection
-    if successful.
-    """
-*/
 
 interface BoltMessenger
   """

@@ -136,10 +136,10 @@ class ResponseHandler
     // TODO: [ResponseHandler] apply
     try
       match message
-      | SUCCESS => on_success(data as CypherMap)
-      | FAILURE => on_failure(data as CypherMap)
-      | IGNORED => on_ignored(data as CypherMap)
-      | RECORD  =>  on_record(data as CypherList)
+      | SUCCESS => on_success(data as CypherMap val)
+      | FAILURE => on_failure(data as CypherMap val)
+      | IGNORED => on_ignored(data as CypherMap val)
+      | RECORD  =>  on_record(data as CypherList val)
       | UNEXPECTED =>
         // TODO: [ResponseHandler] apply, UNEXPECTED match
         //  Other cleanup?

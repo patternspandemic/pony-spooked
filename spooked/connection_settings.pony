@@ -85,15 +85,6 @@ class Configuration
   new trn create(auth': MapIs[CypherType val, CypherType val] val) =>
     auth = CypherMap(auth')
 
-/*
-  fun init_request(): _Request val =>
-    match _init_request
-    | let request: _Request val => request
-    | None =>
-      // build and cache request
-    end
-*/
-
 
 // Trust Strategy Options
 primitive TrustAllCertificates

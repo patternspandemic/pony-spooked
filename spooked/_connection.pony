@@ -24,7 +24,6 @@ actor _BoltConnectionPool
   let _config: Configuration val
   let _host: String val
   let _port: String val
-  // let _connections: Array[BoltConnection iso]
   let _connections: Array[BoltConnection tag]
   var _drained: Bool = false
 
@@ -45,14 +44,14 @@ actor _BoltConnectionPool
   be acquire(session: Session tag) =>
     """Send a BoltConnection to session."""
     try
+      // Shift a connection off the pool, setting on it the acquiring session.
+      // The connection will send itself to the session if it's still alive. On
+      // the chance the connection was closed while in the pool, it will tell
+      // the session to retry acquiring a connection.
       let connection: BoltConnection tag = _connections.shift()?
-      // TODO: Cleanup comment
-      //       Have the connection send itself to the session, since the session
-      //       is set on the connection (which should know if it's closed). Then
-      //       the connection can tell the session whether to request another
-      //       connection from the pool.
       connection._set_session(session)
     else
+      // The pool is empty, send a new connection directly to the session.
       let connection: BoltConnection tag =
         BoltConnection(session, _host, _port, _config, _net_auth, _logger)
       session._receive_connection(connection, false)
@@ -180,11 +179,12 @@ actor BoltConnection
 
   // Must be public for sub-package access.
   be closed() =>
-    _conn = None
-    _bolt_messenger = None
     match _session
     | let s: Session tag => s._closed()
     end
+    _session = None
+    _bolt_messenger = None
+    _conn = None
 
   be _set_session(session: Session) =>
     if _session is None then

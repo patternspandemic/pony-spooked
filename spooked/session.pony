@@ -10,6 +10,7 @@ interface SessionNotify
   fun ref reset(session: Session ref /*tag*/) => None
   fun ref closed(session: Session ref /*tag*/) => None
   // service_unavailable
+  fun ref _handshook(session: Session ref /*tag*/) => None
 
 
 // TODO: [Session] Logging
@@ -50,6 +51,9 @@ actor Session
     if go_ahead then
       _go_ahead()
     end
+
+  be _handshook() =>
+    _notify._handshook(this)
 
   be _go_ahead() =>
     """ Proceed with the work this session should perform. """

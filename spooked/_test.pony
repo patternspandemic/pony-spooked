@@ -34,7 +34,8 @@ class iso _TestIntegrationHandshakeSuccess is UnitTest
       driver.session(
         object iso is SessionNotify
           let _h: TestHelper = h
-          fun ref apply(session: Session ref) =>
+          fun ref apply(session: Session ref) => None
+          fun ref _handshook(session: Session ref) =>
             _h.complete(true)
         end)
     else

@@ -153,6 +153,9 @@ actor BoltConnection
       bolt_messenger.init(_config)
       _bolt_messenger = bolt_messenger
     end
+    match _session
+    | let s: Session tag => s._handshook()
+    end
 
   // Must be public for sub-package access.
   be successfully_init() =>

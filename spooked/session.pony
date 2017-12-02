@@ -1,17 +1,18 @@
 use "logger"
 use "net"
 
-// TODO: [Session] Logging
-
 interface SessionNotify
   """Notifications for Neo4j Bolt Sessions"""
   // TODO: [SessionNotify]
   //    Make session param ref?
 
   fun ref apply(session: Session ref /*tag*/): None
+  fun ref reset(session: Session ref /*tag*/) => None
   fun ref closed(session: Session ref /*tag*/) => None
   // service_unavailable
 
+
+// TODO: [Session] Logging
 actor Session
   let _driver: Driver tag
   let _notify: SessionNotify
@@ -77,14 +78,6 @@ actor Session
   // fun/be read_transaction()
   // fun/be write_transaction()
 
-  // TODO: [Session] _error
-  be _error(err: _BoltConnectionError) =>
-    """"""
-    // Probably reset/dispose dep on error.
-    // match err
-    // | ...
-    // end
-
   // TODO: [Session] reset: Maybe NOT expose publicly on session?
   //    Though, may be useful for retries, action after errors..
   // be reset() =>
@@ -98,17 +91,29 @@ actor Session
   be _successfully_reset(connection: BoltConnection tag) =>
     if _release_on_reset then
       _connection_pool.release(connection)
-      _connection = None
-      // _connection_pool = None
+      // _connection = None
+    else
+      _notify.reset(this)
     end
+
+  be _failed_reset(connection: BoltConnection tag) =>
+    """"""
+    // TODO: [Session] _failed_reset
+
+  // TODO: [Session] _error
+  be _error(err: _BoltConnectionError, data: (CypherMap val | None) = None) =>
+    """"""
+    // Probably reset/dispose dep on error.
+    // Especially dispose on ProtocolError
+    // match err
+    // | ...
+    // end
 
   be _closed() =>
     """ The connection used by the session has closed. Close the session. """
     _notify.closed(this)
     _connection = None
-    // _connection_pool = None
     _driver._end_session(this)
-    // _driver = None
 
   be dispose() =>
     """
@@ -120,5 +125,5 @@ actor Session
       c.reset()
       _release_on_reset = true
     end
+    _connection = None
     _driver._end_session(this)
-    // _driver = None

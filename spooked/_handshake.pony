@@ -86,7 +86,7 @@ class _Handshake is TCPConnectionNotify
         // Server doesn't support any preferred protocol version.
         // The server should be closing the connection.
         _logger(Error) and _logger.log(
-          "[Spooked] Error: No preferred protocol version supported.")
+          "[Spooked] Error: No preferred protocol version supported by server.")
 
         _connection._version_negotiation_failed()
 
@@ -102,14 +102,15 @@ class _Handshake is TCPConnectionNotify
 
         _connection._handshook(chosen_protocol_version)
 
-      | let unsupported_version: U32
-      =>
+      else
         // Odd, the server wants to use a version we didn't suggest.
+        // This is a protocol error, as server should respond with
+        // _ProtocolVersionNone in this case.
         _logger(Error) and _logger.log(
           "[Spooked] Error: Server requesting unsupported Bolt v" +
           chosen_protocol_version.string())
 
-        _connection._unsupported_version(unsupported_version)
+        _connection.protocol_error()
         // TODO: [Handshake] Close conn? or let _connection do it?
       end
     else

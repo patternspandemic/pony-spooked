@@ -50,7 +50,7 @@ actor Driver
 
     _logger(Info) and _logger.log(
       "[Spooked] Info: Neo4j " + scheme + "Driver created for " +
-      host + ":" + port.string())
+      host + ":" + port'.string())
 
   be session(notify: SessionNotify iso) =>
     """

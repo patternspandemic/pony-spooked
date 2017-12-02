@@ -233,7 +233,7 @@ actor BoltV1Messenger is BoltMessenger
     // TODO: [BoltV1Messenger] reset
     _logger(Info) and _logger.log(
       "[Spooked] Info: Sending RESET to server...")
-    _bolt_conn.successfully_reset() // TMP. Would notify send this back?
+    //_bolt_conn.successfully_reset() // TMP. Would notify send this back?
 
   be _handle_response_message(message: CypherStructure val) =>
     """ Handle a message response from the server. """

@@ -6,15 +6,17 @@ use "net/ssl"
 use "./bolt_v1"
 
 primitive ServiceUnavailable
-primitive SessionExpired
-primitive ProtocolError
 primitive UnsupportedProtocolVersion
+primitive ProtocolError
+primitive InitializationError
+// primitive SessionExpired
 
 type _BoltConnectionError is
   ( ServiceUnavailable
-  | SessionExpired
-  | ProtocolError
   | UnsupportedProtocolVersion
+  | ProtocolError
+  | InitializationError
+  // | SessionExpired
   )
 
 
@@ -132,14 +134,14 @@ actor BoltConnection
     match _session
     | let s: Session tag => s._error(UnsupportedProtocolVersion)
     end
-
+/*
   be _unsupported_version(unsupported_version: U32) =>
     // TODO: [BoltConnection] Likely shouldn't happen, but need to close down
     //    as server won't close connection in this case. Call manually.
     match _session
     | let s: Session tag => s._error(ProtocolError)
     end
-
+*/
   be _handshook(version: U32) =>
     // TODO: [BoltConnection] Change TCP notify based on version
     //    - Use a better version to BoltConnectionNotify mapping
@@ -151,14 +153,19 @@ actor BoltConnection
       bolt_messenger.init(_config)
       _bolt_messenger = bolt_messenger
     end
+
+  // Must be public for sub-package access.
+  be successfully_init() =>
+    // TODO: Utilize success metadata?
     match _session
     | let s: Session tag => s._go_ahead()
     end
 
-/*
   // Must be public for sub-package access.
-  be successfully_init() =>
-*/
+  be failed_init(data: CypherMap val) =>
+    match _session
+    | let s: Session tag => s._error(InitializationError, data)
+    end
 
   be _run(
     statement: String val,
@@ -212,6 +219,12 @@ actor BoltConnection
   be successfully_reset() =>
     match _session
     | let s: Session tag => s._successfully_reset(this)
+    end
+
+  // Must be public for sub-package access.
+  be failed_reset() =>
+    match _session
+    | let s: Session tag => s._failed_reset(this)
     end
 
   // TODO: [BoltConnection] Make dispose() private?

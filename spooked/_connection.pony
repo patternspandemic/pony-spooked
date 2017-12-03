@@ -79,7 +79,6 @@ actor _BoltConnectionPool
     _drained = true
 
 
-// class BoltConnection
 actor BoltConnection
   let _logger: Logger[String] val
   let _net_auth: NetAuth val
@@ -158,16 +157,25 @@ actor BoltConnection
     end
 
   // Must be public for sub-package access.
-  be successfully_init() =>
-    // TODO: Utilize success metadata?
+  be successfully_init(meta: CypherMap val) =>
+    let server =
+      try meta.data("server")? as CypherString else "" end
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Connection initialized. " + server)
+
     match _session
     | let s: Session tag => s._go_ahead()
     end
 
   // Must be public for sub-package access.
-  be failed_init(data: CypherMap val) =>
+  be failed_init(meta: CypherMap val) =>
+    let msg =
+      try meta.data("message")? as CypherString else "" end
+    _logger(Info) and _logger.log(
+      "[Spooked] Error: Connection initialization failed: " + msg)
+
     match _session
-    | let s: Session tag => s._error(InitializationError, data)
+    | let s: Session tag => s._error(InitializationError, meta)
     end
 
   be _run(

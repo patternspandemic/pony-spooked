@@ -109,9 +109,9 @@ actor Session
     """"""
     // Probably reset/dispose dep on error.
     // Especially dispose on ProtocolError
-    // match err
-    // | ...
-    // end
+    match err
+    | InitializationError => None
+    end
 
   be _closed() =>
     """ The connection used by the session has closed. Close the session. """

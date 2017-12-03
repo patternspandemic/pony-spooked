@@ -114,8 +114,9 @@ class ResponseHandler
   let _bolt_conn: BoltConnection tag
 
   let _request: ClientRequest
-  var _metadata: (CypherMap val | None) = None
+  // var _metadata: (CypherMap val | None) = None
   var _ignored: (Bool | None) = None
+  var complete: Bool = false
   // Stream each record as it comes, don't store.
   // var records: (Array[CypherList val] trn | None) = None
 
@@ -130,16 +131,16 @@ class ResponseHandler
 
   fun ref apply(
     message: ServerResponse,
-    data: (CypherMap val | CypherList val | None))
+    metadata: (CypherMap val | CypherList val | None))
   =>
     """ Process the unpacked server response message. """
     // TODO: [ResponseHandler] apply
     try
       match message
-      | SUCCESS => on_success(data as CypherMap val)
-      | FAILURE => on_failure(data as CypherMap val)
-      | IGNORED => on_ignored(data as CypherMap val)
-      | RECORD  =>  on_record(data as CypherList val)
+      | SUCCESS => on_success(metadata as CypherMap val)
+      | FAILURE => on_failure(metadata as CypherMap val)
+      | IGNORED => on_ignored(metadata as CypherMap val)
+      | RECORD  =>  on_record(metadata as CypherList val)
       | UNEXPECTED =>
         // TODO: [ResponseHandler] apply, UNEXPECTED match
         //  Other cleanup?
@@ -147,31 +148,38 @@ class ResponseHandler
       end
     end
 
-  fun ref on_success(data: CypherMap val) =>
-    _metadata = data
+  fun ref on_success(metadata: CypherMap val) =>
+    complete = true
+    // _metadata = data
     _ignored = false
     // TODO: Notify _bolt_conn of success w/metadata
-    //  INIT
-    //  ACK_FAILURE
-    //  RESET
-    //  RUN
-    //  DISCARD_ALL
-    //  PULL_ALL
+    match _request
+    | INIT => _bolt_conn.successfully_init(metadata)
+    | ACKFAILURE => None // TODO
+    | RESET => None // TODO
+    | RUN => None // TODO
+    | DISCARDALL => None // TODO
+    | PULLALL => None // TODO
+    end
 
-  fun ref on_failure(data: CypherMap val) =>
-    _metadata = data
+  fun ref on_failure(metadata: CypherMap val) =>
+    complete = true
+    // _metadata = data
     _ignored = false
     // TODO: Notify _bolt_conn of failure w/metadata, ACK_FAILURE needs to be
     //    sent unless request was ACK_FAILURE
-    //  INIT
-    //  ACK_FAILURE
-    //  RESET
-    //  RUN
-    //  DISCARD_ALL
-    //  PULL_ALL
+    match _request
+    | INIT => _bolt_conn.failed_init(metadata)
+    | ACKFAILURE => None // TODO
+    | RESET => None // TODO
+    | RUN => None // TODO
+    | DISCARDALL => None // TODO
+    | PULLALL => None // TODO
+    end
 
-  fun ref on_ignored(data: CypherMap val) =>
-    _metadata = data
+  fun ref on_ignored(metadata: CypherMap val) =>
+    complete = true
+    // _metadata = data
     _ignored = true
     // TODO: Notify _bolt_conn of ignore? w/metadata
 
@@ -180,8 +188,8 @@ class ResponseHandler
     // TODO: Notify _bolt_conn of record
     //  PULL_ALL
 
-  fun complete(): Bool =>
-    _metadata isnt None
+  // fun complete(): Bool =>
+  //   _metadata isnt None
 
 
 actor BoltV1Messenger is BoltMessenger
@@ -274,7 +282,7 @@ actor BoltV1Messenger is BoltMessenger
       current_handler(server_response, data)
 
       // If the handler has completed its work, remove it from the handlers.
-      if current_handler.complete() then
+      if current_handler.complete then
         _response_handlers.shift()?
       end
 

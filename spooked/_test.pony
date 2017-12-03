@@ -13,12 +13,13 @@ actor Main is TestList
   fun tag tests(test: PonyTest) =>
     bolt_v1.Main.make().tests(test)
 
-    test(_TestIntegrationHandshakeSuccess)
+    test(_TestConnectionHandshakeSuccess)
+    test(_TestConnectionINITSuccess)
 
 
-class iso _TestIntegrationHandshakeSuccess is UnitTest
+class iso _TestConnectionHandshakeSuccess is UnitTest
   fun name(): String =>
-    "spooked/integration/handshake/success"
+    "spooked/connection/handshake/success"
 
   fun apply(h: TestHelper) =>
     try
@@ -36,6 +37,31 @@ class iso _TestIntegrationHandshakeSuccess is UnitTest
           let _h: TestHelper = h
           fun ref apply(session: Session ref) => None
           fun ref _handshook(session: Session ref) =>
+            _h.complete(true)
+        end)
+    else
+      h.fail()
+    end
+
+class iso _TestConnectionINITSuccess is UnitTest
+  fun name(): String =>
+    "spooked/connection/init/success"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(10_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+          fun ref apply(session: Session ref) =>
             _h.complete(true)
         end)
     else

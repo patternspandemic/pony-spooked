@@ -160,10 +160,10 @@ actor BoltConnection
   // Must be public for sub-package access.
   be successfully_init(meta: CypherMap val) =>
     let server =
-      try meta.data("server")? as CypherString else "" end
+      try " (" + meta.data("server")?.string() + ")." else "." end
     _logger(Info) and _logger.log(
-      "[Spooked] Info: Connection initialized. " + server)
-
+      "[Spooked] Info: Connection initialized" + server)
+    // TODO: Assign server version to session, accessible to SessionNotify
     match _session
     | let s: Session tag => s._go_ahead()
     end
@@ -171,7 +171,7 @@ actor BoltConnection
   // Must be public for sub-package access.
   be failed_init(meta: CypherMap val) =>
     let msg =
-      try meta.data("message")? as CypherString else "" end
+      try meta.data("message")? as CypherString val else "" end
     _logger(Info) and _logger.log(
       "[Spooked] Error: Connection initialization failed: " + msg)
 

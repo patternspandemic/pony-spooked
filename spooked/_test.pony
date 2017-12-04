@@ -55,7 +55,7 @@ class iso _TestConnectionINITSuccess is UnitTest
         NetAuth(h.env.root as AmbientAuth),
         StringLogger(Info, TestHelperLogStream(h)))?
 
-      h.long_test(10_000_000_000)
+      h.long_test(2_000_000_000)
       h.dispose_when_done(driver)
 
       driver.session(

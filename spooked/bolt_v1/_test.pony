@@ -293,6 +293,12 @@ class iso _TestPackStreamPackedList is UnitTest
       "90",
       _PackStream.h(
         _PackStream.packed([list])?))
+    // [1]
+    list = CypherList([I64(1)])
+    h.assert_eq[String](
+      "91:01",
+      _PackStream.h(
+        _PackStream.packed([list])?))
     // [1, 2, 3]
     list = CypherList([I64(1); I64(2); I64(3)])
     h.assert_eq[String](
@@ -366,14 +372,16 @@ class iso _TestPackStreamPackedMap is UnitTest
   fun apply(h: TestHelper) ? =>
     var map: CypherMap val
     // Empty map
-    let data1 = recover val MapIs[CypherType val, CypherType val] end
+    // let data1 = recover val MapIs[CypherType val, CypherType val] end
+    let data1 = recover val Map[String val, CypherType val] end
     map = CypherMap(data1)
     h.assert_eq[String](
       "A0",
       _PackStream.h(
         _PackStream.packed([map])?))
     // {"one": "eins"}
-    let data2 = recover trn MapIs[CypherType val, CypherType val] end
+    // let data2 = recover trn MapIs[CypherType val, CypherType val] end
+    let data2 = recover trn Map[String val, CypherType val] end
     data2("one") = "eins"
     map = CypherMap(consume data2)
     h.assert_eq[String](
@@ -381,7 +389,8 @@ class iso _TestPackStreamPackedMap is UnitTest
       _PackStream.h(
         _PackStream.packed([map])?))
     // {"A": 1, "B": 2, ... "Z": 26}
-    let data3 = recover trn MapIs[CypherType val, CypherType val] end
+    // let data3 = recover trn MapIs[CypherType val, CypherType val] end
+    let data3 = recover trn Map[String val, CypherType val] end
     let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var pos: USize = 0
     for i in Range(0, 26) do
@@ -412,14 +421,16 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     var pkd: ByteSeq
     var unpkd: CypherMap val
     // Empty Map
-    let data1 = recover val MapIs[CypherType val, CypherType val] end
+    // let data1 = recover val MapIs[CypherType val, CypherType val] end
+    let data1 = recover val Map[String val, CypherType val] end
     map = CypherMap(data1)
     pkd = _PackStream.packed([map])?
     unpkd = _PackStream.unpacked(pkd)? as CypherMap val
     h.assert_eq[U64](
       _PackStream.hashed_packed(map)?, _PackStream.hashed_packed(unpkd)?)
     // {"one": "eins"}
-    let data2 = recover trn MapIs[CypherType val, CypherType val] end
+    // let data2 = recover trn MapIs[CypherType val, CypherType val] end
+    let data2 = recover trn Map[String val, CypherType val] end
     data2("one") = "eins"
     map = CypherMap(consume data2)
     pkd = _PackStream.packed([map])?
@@ -427,7 +438,8 @@ class iso _TestPackStreamUnpackedMap is UnitTest
     h.assert_eq[U64](
       _PackStream.hashed_packed(map)?, _PackStream.hashed_packed(unpkd)?)
     // {"A": 1, "B": 2, ... "Z": 26}
-    let data3 = recover trn MapIs[CypherType val, CypherType val] end
+    // let data3 = recover trn MapIs[CypherType val, CypherType val] end
+    let data3 = recover trn Map[String val, CypherType val] end
     let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     var pos: USize = 0
     for i in Range(0, 26) do
@@ -544,7 +556,8 @@ class iso _TestClientMessageInit is UnitTest
 
   fun apply(h: TestHelper) ? =>
     let user_agent: String = "MyClient/1.0"
-    let data = recover trn MapIs[CypherType val, CypherType val] end
+    // let data = recover trn MapIs[CypherType val, CypherType val] end
+    let data = recover trn Map[String val, CypherType val] end
     data("scheme") = "basic"
     data("principal") = "neo4j"
     data("credentials") = "secret"
@@ -569,7 +582,8 @@ class iso _TestClientMessageRun is UnitTest
   fun apply(h: TestHelper) ? =>
     let statement: String = "RETURN 1 AS num"
     let empty_map =
-      recover val MapIs[CypherType val, CypherType val] end
+      // recover val MapIs[CypherType val, CypherType val] end
+      recover val Map[String val, CypherType val] end
     let parameters = CypherMap(consume empty_map)
     let pkd = RunMessage(statement, parameters)?
     // Works only due to empty param map

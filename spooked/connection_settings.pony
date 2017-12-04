@@ -26,7 +26,8 @@ class val ConnectionSettings
     )
   =>
     var auth_map =
-      recover trn MapIs[CypherType val, CypherType val] end
+      // recover trn MapIs[CypherType val, CypherType val] end
+      recover trn Map[String val, CypherType val] end
     auth_map("scheme") = "basic"
     auth_map("principal") = user
     auth_map("credentials") = password
@@ -82,7 +83,8 @@ class Configuration
   /* Cached INIT Request 
   var _init_request: (_Request val | None) = None */
 
-  new trn create(auth': MapIs[CypherType val, CypherType val] val) =>
+  // new trn create(auth': MapIs[CypherType val, CypherType val] val) =>
+  new trn create(auth': Map[String val, CypherType val] val) =>
     auth = CypherMap(auth')
 
 

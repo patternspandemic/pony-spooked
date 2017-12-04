@@ -375,14 +375,20 @@ class _Packed is Iterator[CypherType val]
 
   fun ref _unpack_map(
     pair_count: USize)
-    : MapIs[CypherType val, CypherType val] val^ ?
+    // : MapIs[CypherType val, CypherType val] val^ ?
+    : Map[String val, CypherType val] val^ ?
   =>
     let pair_data = _unpack(pair_count * 2)? as Array[CypherType val] val
+
+    // let key_iter =
+    //   Iter[CypherType val](pair_data.values())
+    //     .enum().filter( {(pair) => (pair._1 % 2) == 0 } )
+    //     .map[CypherType val]( {(pair) => pair._2 })
 
     let key_iter =
       Iter[CypherType val](pair_data.values())
         .enum().filter( {(pair) => (pair._1 % 2) == 0 } )
-        .map[CypherType val]( {(pair) => pair._2 })
+        .map[String val]( {(pair) ? => pair._2 as CypherString val })
 
     let val_iter =
       Iter[CypherType val](pair_data.values())
@@ -391,7 +397,8 @@ class _Packed is Iterator[CypherType val]
 
     let kv_pairs = key_iter.zip[CypherType val](val_iter)
 
-    let m: MapIs[CypherType val, CypherType val] trn =
+    // let m: MapIs[CypherType val, CypherType val] trn =
+    let m: Map[String val, CypherType val] trn =
       recover trn m.create(pair_count) end
     // m.concat(kv_pairs) :(
     for kv in kv_pairs do

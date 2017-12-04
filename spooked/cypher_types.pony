@@ -31,14 +31,23 @@ class CypherList
   var data: Array[CypherType val] val
   new val create(data': Array[CypherType val] val) =>
     data = data'
+  fun string(): String iso^ =>
+    let s = "TODO: CypherList string()"
+    s.clone()
 
 
 class CypherMap
-  var data: MapIs[CypherType val, CypherType val] val
-  new val create(data': MapIs[CypherType val, CypherType val] val) =>
+  // var data: MapIs[CypherType val, CypherType val] val
+  var data: Map[String val, CypherType val] val
+  // new val create(data': MapIs[CypherType val, CypherType val] val) =>
+  new val create(data': Map[String val, CypherType val] val) =>
     data = data'
   new val empty() =>
-    data = recover val MapIs[CypherType val, CypherType val] end
+    // data = recover val MapIs[CypherType val, CypherType val] end
+    data = recover val Map[String val, CypherType val] end
+  fun string(): String iso^ =>
+    let s = "TODO: CypherMap string()"
+    s.clone()
 
 
 class CypherStructure
@@ -58,11 +67,26 @@ class CypherStructure
     | let field_array: Array[CypherType val] val => field_array.size()
     end
 
+  fun string(): String iso^ =>
+    let s = "TODO: CypherStructure string()"
+    s.clone()
 
 class CypherNode
+  fun string(): String iso^ =>
+    let s = "TODO: CypherNode string()"
+    s.clone()
 
 class CypherRelationship
+  fun string(): String iso^ =>
+    let s = "TODO: CypherRelationship string()"
+    s.clone()
 
 class CypherUnboundRelationship
+  fun string(): String iso^ =>
+    let s = "TODO: CypherUnboundRelationship string()"
+    s.clone()
 
 class CypherPath
+  fun string(): String iso^ =>
+    let s = "TODO: CypherPath string()"
+    s.clone()

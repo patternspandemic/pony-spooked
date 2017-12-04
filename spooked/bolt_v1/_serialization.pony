@@ -5,7 +5,6 @@ use "itertools"
 
 use ".."
 
-
 primitive _PackStream
   """
   PackStream is a custom data serialisation format inspired heavily by
@@ -398,6 +397,7 @@ class _Packed is Iterator[CypherType val]
     for kv in kv_pairs do
       m(kv._1) = kv._2
     end
+
     consume m
 
   fun ref _unpack_structure(
@@ -405,11 +405,15 @@ class _Packed is Iterator[CypherType val]
     : (U8, Array[CypherType val] val) ?
   =>
     let signature = _rb.u8()?
-    let fields = _unpack(field_count)? as Array[CypherType val] val
+
+    // FIXME: unpack may return a single CypherType, not an array when field count is 1
+    let fields = _unpack(field_count, true)? as Array[CypherType val] val
     (signature, fields)
+    
 
   fun ref _unpack(
-    count: USize = 1)
+    count: USize = 1,
+    force_return_array: Bool = false)
     : (CypherType val | Array[CypherType val] val^) ?
   =>
     let unpacked: Array[CypherType val] trn =
@@ -438,16 +442,16 @@ class _Packed is Iterator[CypherType val]
       | 0xD0 => unpacked.push(_unpack_string(_rb.u8()?.usize())?)
       | 0xD1 => unpacked.push(_unpack_string(_rb.u16_be()?.usize())?)
       | 0xD2 => unpacked.push(_unpack_string(_rb.u32_be()?.usize())?)
-      // List
+      // List, force unpacking of elements as array
       | let mb: U8 if (0x90 <= mb) and (mb < 0xA0) =>
        unpacked.push(CypherList(
-         _unpack((mb and 0x0F).usize())? as Array[CypherType val] val))
+         _unpack((mb and 0x0F).usize(), true)? as Array[CypherType val] val))
       | 0xD4 => unpacked.push(CypherList(
-          _unpack(_rb.u8()?.usize())? as Array[CypherType val] val))
+          _unpack(_rb.u8()?.usize(), true)? as Array[CypherType val] val))
       | 0xD5 => unpacked.push(CypherList(
-          _unpack(_rb.u16_be()?.usize())? as Array[CypherType val] val))
+          _unpack(_rb.u16_be()?.usize(), true)? as Array[CypherType val] val))
       | 0xD6 => unpacked.push(CypherList(
-          _unpack(_rb.u32_be()?.usize())? as Array[CypherType val] val))
+          _unpack(_rb.u32_be()?.usize(), true)? as Array[CypherType val] val))
       // Map
       | let mb: U8 if (0xA0 <= mb) and (mb < 0xB0) =>
         unpacked.push(CypherMap(
@@ -478,7 +482,7 @@ class _Packed is Iterator[CypherType val]
       end
     end
 
-    if count == 1 then
+    if (count == 1) and (not force_return_array) then
       unpacked(0)?
     else
       consume unpacked

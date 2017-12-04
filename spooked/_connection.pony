@@ -150,6 +150,7 @@ actor BoltConnection
       let bolt_messenger = BoltV1Messenger(this, c, _logger)
       c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
       bolt_messenger.init(_config)
+      bolt_messenger.init(_config)
       _bolt_messenger = bolt_messenger
     end
     match _session

@@ -217,6 +217,9 @@ actor BoltV1Messenger is BoltMessenger
   be init(config: Configuration val) =>
     """Initialize the Bolt connection."""
     try
+      _logger(Info) and _logger.log(
+        "[Spooked] Info: Initializing connection...")
+
       // Send an INIT message immediately
       _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
       _response_handlers.push(ResponseHandler(INIT, _bolt_conn, _logger))

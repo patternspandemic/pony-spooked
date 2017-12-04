@@ -330,6 +330,12 @@ class iso _TestPackStreamUnpackedList is UnitTest
     unpkd = _PackStream.unpacked(pkd)? as CypherList val
     h.assert_eq[U64](
       _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
+    // List of one
+    value = CypherList([I64(1)])
+    pkd = _PackStream.packed([value])?
+    unpkd = _PackStream.unpacked(pkd)? as CypherList val
+    h.assert_eq[U64](
+      _PackStream.hashed_packed(value)?, _PackStream.hashed_packed(unpkd)?)
     // Homogeneous list
     value = CypherList([I64(1); I64(2); I64(3)])
     pkd = _PackStream.packed([value])?

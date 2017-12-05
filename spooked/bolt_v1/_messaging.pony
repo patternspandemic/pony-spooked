@@ -156,7 +156,7 @@ class ResponseHandler
     match _request
     | INIT => _bolt_conn.successfully_init(metadata)
     | ACKFAILURE => None // TODO
-    | RESET => None // TODO
+    | RESET => _bolt_conn.successfully_reset(metadata)
     | RUN => None // TODO
     | DISCARDALL => None // TODO
     | PULLALL => None // TODO
@@ -171,7 +171,7 @@ class ResponseHandler
     match _request
     | INIT => _bolt_conn.failed_init(metadata)
     | ACKFAILURE => None // TODO
-    | RESET => None // TODO
+    | RESET => _bolt_conn.failed_reset(metadata)
     | RUN => None // TODO
     | DISCARDALL => None // TODO
     | PULLALL => None // TODO
@@ -241,9 +241,13 @@ actor BoltV1Messenger is BoltMessenger
     None
 
   be reset() =>
-    // TODO: [BoltV1Messenger] reset
+    """Reset the Bolt connection."""
     _logger(Info) and _logger.log(
-      "[Spooked] Info: Sending RESET to server...")
+      "[Spooked] Info: Reseting connection...")
+
+    // Send a RESET message immediately
+    _tcp_conn.write(ResetMessage())
+    _response_handlers.push(ResponseHandler(RESET, _bolt_conn, _logger))
 
   be _handle_response_message(message: CypherStructure val) =>
     """ Handle a message response from the server. """

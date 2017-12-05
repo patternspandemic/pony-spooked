@@ -150,7 +150,8 @@ actor BoltConnection
       let bolt_messenger = BoltV1Messenger(this, c, _logger)
       c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
       bolt_messenger.init(_config)
-      bolt_messenger.init(_config)
+      // bolt_messenger.reset()
+      // bolt_messenger.init(_config)
       _bolt_messenger = bolt_messenger
     end
     match _session
@@ -228,15 +229,20 @@ actor BoltConnection
     end
 
   // Must be public for sub-package access.
-  be successfully_reset() =>
+  be successfully_reset(meta: CypherMap val) =>
     match _session
     | let s: Session tag => s._successfully_reset(this)
     end
 
   // Must be public for sub-package access.
-  be failed_reset() =>
+  be failed_reset(meta: CypherMap val) =>
+    let msg =
+      try meta.data("message")? as CypherString val else "" end
+    _logger(Info) and _logger.log(
+      "[Spooked] Error: Connection initialization failed: " + msg)
+
     match _session
-    | let s: Session tag => s._failed_reset(this)
+    | let s: Session tag => s._failed_reset(this, meta)
     end
 
   // TODO: [BoltConnection] Make dispose() private?

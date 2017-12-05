@@ -62,7 +62,11 @@ class iso _TestConnectionINITSuccess is UnitTest
         object iso is SessionNotify
           let _h: TestHelper = h
           fun ref apply(session: Session ref) =>
-            _h.complete(true)
+            _h.log("Session notifier applied!")
+            // _h.complete(true)
+          fun ref reset(session: Session ref) =>
+            _h.log("Session notifier reset!")
+            // _h.complete(true)
         end)
     else
       h.fail()

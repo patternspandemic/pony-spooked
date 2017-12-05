@@ -100,9 +100,10 @@ actor Session
       _notify.reset(this)
     end
 
-  be _failed_reset(connection: BoltConnection tag) =>
+  be _failed_reset(connection: BoltConnection tag, meta: CypherMap val) =>
     """"""
     // TODO: [Session] _failed_reset
+    //    ProtocolError?, close session? Does server close?
 
   // TODO: [Session] _error
   be _error(err: _BoltConnectionError, data: (CypherMap val | None) = None) =>

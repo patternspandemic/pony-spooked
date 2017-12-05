@@ -80,9 +80,6 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     : ByteSeq
   =>
     """ Encode a packed message into chunks. """
-_logger(Info) and _logger.log(
-"[Spooked] Info: ENCODING MESSAGE")
-
     let msg_data =
       match data
       | let data': Array[U8] val => data'
@@ -115,14 +112,8 @@ _logger(Info) and _logger.log(
     Append data received into a read buffer, from which, process as many
     chunks and assemble as many messages as are contained in that buffer.
     """
-_logger(Info) and _logger.log(
-"[Spooked] Info: __RECEIVED__")
-    
     _rb.append(consume data)
 
-_logger(Info) and _logger.log(
-"[Spooked] Info: _rb size: " + _rb.size().string()
-)
     // A flag to mark whether there is more to process in _rb
     var process_rb = true
 
@@ -156,8 +147,6 @@ _logger(Info) and _logger.log(
 
   fun ref _handle_header(): Bool =>
     """ Act on a header read from the read buffer. """
-_logger(Info) and _logger.log(
-"[Spooked] Info: HANDLING HEADER")
     try
       let header = _rb.u16_be()?
 
@@ -180,9 +169,6 @@ _logger(Info) and _logger.log(
 
   fun ref _handle_chunk(): Bool =>
     """ Act on chunk data. """
-_logger(Info) and _logger.log(
-"[Spooked] Info: HANDLING CHUNK " + 
-_rb.size().string() + "/" + _chunk_size.string())
     if _chunk_size <= _rb.size() then
       // Read buffer contains at least the current chunk.
       // Move the chunk's data into _current_message_data.
@@ -191,9 +177,6 @@ _rb.size().string() + "/" + _chunk_size.string())
         _current_message_data.append(chunk_data)
         // Expect the next chunk / msg boundary
         _receive_state = AwaitingChunk
-      else
-_logger(Info) and _logger.log(
-"[Spooked] Error: HANDLING CHUNK BLOCK")
       end
 
       if _rb.size() > 0 then
@@ -208,31 +191,26 @@ _logger(Info) and _logger.log(
 
   fun ref _handle_message() =>
     """ Act on a completely received message. """
-_logger(Info) and _logger.log(
-"[Spooked] Info: HANDLING MESSAGE")
-
     try
       // Unpack the message into a CypherStructure
       let packed_message = _current_message_data = recover trn Array[U8 val] end
 
-let packed_message': Array[U8 val] val = consume packed_message
-_logger(Info) and _logger.log(_PackStream.h(packed_message'))
+// let packed_message': Array[U8 val] val = consume packed_message
+// _logger(Info) and _logger.log(_PackStream.h(packed_message'))
 
       let message: CypherStructure val =
-        _PackStream.unpacked(/*consume*/ packed_message')? as CypherStructure val
+        _PackStream.unpacked(consume packed_message)? as CypherStructure val
+        // _PackStream.unpacked(packed_message')? as CypherStructure val
       
       // Send it on to the messenger for response processing.
       _messenger._handle_response_message(message)
-
-    else
-_logger(Info) and _logger.log(
-"[Spooked] Error: HANDLING MESSAGE UNPACK")
-
+    // else
+    //   // Message unpacking error, a ProtocolError?
+    //   _logger(Info) and _logger.log(
+    //     "[Spooked] Error: ...")
     end
 
   fun ref closed(conn: TCPConnection ref) =>
-_logger(Info) and _logger.log(
-"[Spooked] Info: CONNECTION CLOSED!")
     _connection.closed()
     // TODO: Set _connection, _messenger to None?
 

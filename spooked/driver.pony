@@ -80,7 +80,7 @@ actor Driver
 
     // Close all open Sessions, releasing each back to pool.
     for session' in _open_sessions.values() do
-      session'.dispose()
+      session'.dispose(false) // Don't pool session's connection
     end
     _open_sessions.clear()
 

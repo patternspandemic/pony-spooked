@@ -6,11 +6,14 @@ interface SessionNotify
   // TODO: [SessionNotify]
   //    Make session param ref?
 
-  fun ref apply(session: Session ref /*tag*/): None
-  fun ref reset(session: Session ref /*tag*/) => None
-  fun ref closed(session: Session ref /*tag*/) => None
+  fun ref apply(session: Session ref): None
+  fun ref reset(session: Session ref) => None
+  fun ref closed(session: Session ref) => None
   // service_unavailable
-  fun ref _handshook(session: Session ref /*tag*/) => None
+
+  // Internally Used
+  fun ref _handshook(session: Session ref) => None
+  fun ref _initialized(session: Session ref) => None
 
 
 // TODO: [Session] Logging
@@ -54,6 +57,9 @@ actor Session
 
   be _handshook() =>
     _notify._handshook(this)
+
+  be _initialized() =>
+    _notify._initialized(this)
 
   be _go_ahead() =>
     """ Proceed with the work this session should perform. """
@@ -120,15 +126,19 @@ actor Session
     _connection = None
     _driver._end_session(this)
 
-  be dispose() =>
+  be dispose(release_connection: Bool = true) =>
     """
     Dispose of this session. Attempt to return the connection back to the
     pool if successfully reset.
     """
-    match _connection
-    | let c: BoltConnection tag =>
-      c.reset()
-      _release_on_reset = true
-    end
+      match _connection
+      | let c: BoltConnection tag =>
+        if release_connection then
+          c.reset()
+          _release_on_reset = true
+        else
+          c.dispose()
+        end
+      end
     _connection = None
     _driver._end_session(this)

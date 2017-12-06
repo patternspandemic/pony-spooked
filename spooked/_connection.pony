@@ -90,7 +90,6 @@ actor BoltConnection
   var _bolt_messenger: (BoltMessenger tag | None) = None
   var _session: (Session tag | None) = None
 
-  // new iso create(
   new create(
     session: Session tag,
     host: String val,
@@ -133,14 +132,7 @@ actor BoltConnection
     match _session
     | let s: Session tag => s._error(UnsupportedProtocolVersion)
     end
-/*
-  be _unsupported_version(unsupported_version: U32) =>
-    // TODO: [BoltConnection] Likely shouldn't happen, but need to close down
-    //    as server won't close connection in this case. Call manually.
-    match _session
-    | let s: Session tag => s._error(ProtocolError)
-    end
-*/
+
   be _handshook(version: U32) =>
     // TODO: [BoltConnection] Change TCP notify based on version
     //    - Use a better version to BoltConnectionNotify mapping
@@ -149,8 +141,6 @@ actor BoltConnection
     | let c: TCPConnection =>
       let bolt_messenger = BoltV1Messenger(this, c, _logger)
       c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
-      bolt_messenger.init(_config)
-      bolt_messenger.reset()
       bolt_messenger.init(_config)
       _bolt_messenger = bolt_messenger
     end
@@ -166,7 +156,9 @@ actor BoltConnection
       "[Spooked] Info: Connection initialized" + server)
     // TODO: Assign server version to session, accessible to SessionNotify
     match _session
-    | let s: Session tag => s._go_ahead()
+    | let s: Session tag =>
+      s._initialized() // Pass on server version here
+      s._go_ahead()
     end
 
   // Must be public for sub-package access.
@@ -175,7 +167,6 @@ actor BoltConnection
       try meta.data("message")? as CypherString val else "" end
     _logger(Info) and _logger.log(
       "[Spooked] Error: Connection initialization failed: " + msg)
-
     match _session
     | let s: Session tag => s._error(InitializationError, meta)
     end
@@ -239,8 +230,7 @@ actor BoltConnection
     let msg =
       try meta.data("message")? as CypherString val else "" end
     _logger(Info) and _logger.log(
-      "[Spooked] Error: Connection initialization failed: " + msg)
-
+      "[Spooked] Error: Connection reset failed: " + msg)
     match _session
     | let s: Session tag => s._failed_reset(this, meta)
     end

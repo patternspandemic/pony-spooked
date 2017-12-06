@@ -112,7 +112,6 @@ class BoltV1ConnectionNotify is TCPConnectionNotify
     Append data received into a read buffer, from which, process as many
     chunks and assemble as many messages as are contained in that buffer.
     """
-_logger(Info) and _logger.log("RECEIVED: " + data.size().string())
     _rb.append(consume data)
 
     // A flag to mark whether there is more to process in _rb
@@ -144,16 +143,12 @@ _logger(Info) and _logger.log("RECEIVED: " + data.size().string())
           _handle_chunk()
         end
     end
-_logger(Info) and _logger.log("LEFT IN _rb: " + _rb.size().string())
     true // Keep receiving
 
   fun ref _handle_header(): Bool =>
     """ Act on a header read from the read buffer. """
     try
       let header = _rb.u16_be()?
-
-_logger(Info) and _logger.log("HEADER: " + header.string())
-
       if header == BoltTransport.message_boundary() then
         // End of message detected
         _handle_message()
@@ -180,13 +175,9 @@ _logger(Info) and _logger.log("HEADER: " + header.string())
         let chunk_data: Array[U8] val = _rb.block(_chunk_size)?
         _current_message_data.append(chunk_data)
 
-_logger(Info) and _logger.log("PASSED A CHUNK")
-
         // Expect the next chunk / msg boundary
         _receive_state = AwaitingChunk
       end
-
-_logger(Info) and _logger.log("_rb SIZE: " + _rb.size().string())
 
       if _rb.size() > 0 then
         true // Keep processing received data

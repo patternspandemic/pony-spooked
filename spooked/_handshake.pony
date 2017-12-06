@@ -76,6 +76,7 @@ class _Handshake is TCPConnectionNotify
   =>
     let rb = Reader
     rb.append(consume data)
+    conn.expect(0) // Reset received to any number of bytes.
 
     try
       let chosen_protocol_version = rb.u32_be()?

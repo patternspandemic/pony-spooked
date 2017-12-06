@@ -379,6 +379,7 @@ class _Packed is Iterator[CypherType val]
   =>
     let pair_data = _unpack(pair_count * 2)? as Array[CypherType val] val
 
+    // From when CypherMap keys were CypherType, map was MapIs
     // let key_iter =
     //   Iter[CypherType val](pair_data.values())
     //     .enum().filter( {(pair) => (pair._1 % 2) == 0 } )
@@ -410,7 +411,6 @@ class _Packed is Iterator[CypherType val]
   =>
     let signature = _rb.u8()?
 
-    // FIXME: unpack may return a single CypherType, not an array when field count is 1
     let fields = _unpack(field_count, true)? as Array[CypherType val] val
     (signature, fields)
     

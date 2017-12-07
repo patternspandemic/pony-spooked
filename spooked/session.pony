@@ -1,6 +1,17 @@
 use "logger"
 use "net"
 
+primitive Streamed
+primitive Buffered
+primitive Discarded
+
+type ReturnedResults is
+  ( Streamed
+  | Buffered
+  | Discarded
+  )
+
+
 interface SessionNotify
   """Notifications for Neo4j Bolt Sessions"""
   // TODO: [SessionNotify]
@@ -76,12 +87,13 @@ actor Session
   // be run(
   fun run(
     statement: String val,
-    parameters: CypherMap val = CypherMap.empty())
+    parameters: CypherMap val = CypherMap.empty(),
+    results_as: ReturnedResults = Streamed)
   =>
     """ Pass a Cypher statement for execution on the server. """
     match _connection
     | let c: BoltConnection tag =>
-      c._run(statement, parameters)
+      c._run(statement, parameters, results_as)
     end
 
   // fun/be begin_transaction()

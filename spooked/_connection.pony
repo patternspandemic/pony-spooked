@@ -173,7 +173,8 @@ actor BoltConnection
 
   be _run(
     statement: String val,
-    parameters: CypherMap val)
+    parameters: CypherMap val,
+    results_as: ReturnedResults)
   =>
     // TODO: [BoltConnection] _run()
     match _bolt_messenger
@@ -247,7 +248,10 @@ interface BoltMessenger
   """
   be init(config: Configuration val)
     """Initialize the Bolt connection."""
-  be add_statement(statement: String val, parameters: CypherMap val)
+  be add_statement(
+    statement: String val,
+    parameters: CypherMap val,
+    results_as: ReturnedResults)
     """Add a Cypher statement to be run by the server."""
   be flush()
     """Send all pipelined messages through the connection."""

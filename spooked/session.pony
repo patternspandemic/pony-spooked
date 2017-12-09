@@ -13,15 +13,41 @@ type ReturnedResults is
 
 
 interface SessionNotify
-  """Notifications for Neo4j Bolt Sessions"""
+  """ Notifications for Neo4j Bolt Sessions """
   // TODO: [SessionNotify]
   fun ref apply(session: Session ref): None
-  fun ref result(session: Session ref, CypherList val) => None
-  fun ref results(session: Session ref, Array[CypherList val] val) => None
-  fun ref summary(session: Session ref, CypherMap val) => None
-  fun ref failure(session: Session ref, CypherMap val) => None
-  fun ref reset(session: Session ref) => None
-  fun ref closed(session: Session ref) => None
+    """"""
+
+  fun ref result(
+    session: Session ref,
+    result': CypherList val)
+  =>
+    """"""
+    None
+
+  fun ref results(
+    session: Session ref,
+    results': Array[CypherList val] val)
+  =>
+    """"""
+    None
+
+  fun ref summary(session: Session ref, meta: CypherMap val) =>
+    """"""
+    None
+
+  fun ref failure(session: Session ref, meta: CypherMap val) =>
+    """"""
+    None
+
+  fun ref reset(session: Session ref) =>
+    """"""
+    None
+
+  fun ref closed() =>
+    """"""
+    None
+
   // service_unavailable
 
   // Internally Used
@@ -86,24 +112,27 @@ actor Session
       c.flush()
     end
 
-  // be run(
   fun run(
     statement: String val,
     parameters: CypherMap val = CypherMap.empty(),
     results_as: ReturnedResults = Streamed)
   =>
-    """ Pass a Cypher statement for execution on the server. """
+    """
+    Pass a templated Cypher statement and its parameters along for execution on
+    the server. Specify whether results are `Streamed` one by one (default),
+    `Buffered` and returned as a whole, or `Discarded`.
+    """
     match _connection
     | let c: BoltConnection tag =>
       c._run(statement, parameters, results_as)
     end
 
-be _receive_streamed_result(CypherList val) => None
-be _receive_buffered_results(Array[CypherList val] val) => None
+  be _receive_streamed_result(result: CypherList val) => None
+  be _receive_buffered_results(results: Array[CypherList val] val) => None
 
-  // fun/be begin_transaction()
-  // fun/be read_transaction()
-  // fun/be write_transaction()
+  // fun begin_transaction()
+  // fun read_transaction()
+  // fun write_transaction()
 
   // TODO: [Session] reset: Maybe NOT expose publicly on session?
   //    Though, may be useful for retries, action after errors..
@@ -117,6 +146,7 @@ be _receive_buffered_results(Array[CypherList val] val) => None
 
   be _successfully_reset(connection: BoltConnection tag) =>
     if _release_on_reset then
+      _notify.closed() // Session was disposed of.
       _connection_pool.release(connection)
       // _connection = None
     else
@@ -139,7 +169,7 @@ be _receive_buffered_results(Array[CypherList val] val) => None
 
   be _closed() =>
     """ The connection used by the session has closed. Close the session. """
-    _notify.closed(this)
+    _notify.closed()
     _connection = None
     _driver._end_session(this)
 

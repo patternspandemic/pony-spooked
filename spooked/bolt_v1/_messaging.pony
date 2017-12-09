@@ -228,7 +228,11 @@ actor BoltV1Messenger is BoltMessenger
       _bolt_conn.protocol_error()
     end
 
-  be add_statement(statement: String val, parameters: CypherMap val) =>
+  be add_statement(
+    statement: String val,
+    parameters: CypherMap val,
+    results_as: ReturnedResults)
+  =>
     """Add a Cypher statement to be run by the server."""
     // TODO: [BoltV1Messenger] add_statement
     // Pipeline RUN statements and later writev them in flush()

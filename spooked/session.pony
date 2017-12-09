@@ -15,9 +15,11 @@ type ReturnedResults is
 interface SessionNotify
   """Notifications for Neo4j Bolt Sessions"""
   // TODO: [SessionNotify]
-  //    Make session param ref?
-
   fun ref apply(session: Session ref): None
+  fun ref result(session: Session ref, CypherList val) => None
+  fun ref results(session: Session ref, Array[CypherList val] val) => None
+  fun ref summary(session: Session ref, CypherMap val) => None
+  fun ref failure(session: Session ref, CypherMap val) => None
   fun ref reset(session: Session ref) => None
   fun ref closed(session: Session ref) => None
   // service_unavailable
@@ -95,6 +97,9 @@ actor Session
     | let c: BoltConnection tag =>
       c._run(statement, parameters, results_as)
     end
+
+be _receive_streamed_result(CypherList val) => None
+be _receive_buffered_results(Array[CypherList val] val) => None
 
   // fun/be begin_transaction()
   // fun/be read_transaction()

@@ -90,6 +90,15 @@ actor BoltConnection
   var _bolt_messenger: (BoltMessenger tag | None) = None
   var _session: (Session tag | None) = None
 
+  // For each run statement, track how results should be handled.
+  let _run_results_as: Array[ReturnedResults] = _run_results_as.create()
+  // The ordered list of field names for which each result contains data.
+  var _result_fields: (CypherList val | None) = None
+  // When results currently being streamed from the messenger should be
+  // returned to the session all at once, they're collected in this buffer.
+  var _buffered_results: Array[CypherList val] trn =
+    recover trn Array[CypherList val] end
+
   new create(
     session: Session tag,
     host: String val,
@@ -176,15 +185,65 @@ actor BoltConnection
     parameters: CypherMap val,
     results_as: ReturnedResults)
   =>
-    // TODO: [BoltConnection] _run()
     match _bolt_messenger
     | let messenger: BoltMessenger tag =>
-      // messenger.add_statement(...)
-      None // tmp
+      messenger.add_statement(statement, parameters, results_as)
+      if results_as isnt Discarded then
+        // Track how to handle results passed back to us from the messenger.
+        _run_results_as.push(results_as)
+      end
     end
 
-  // TODO: [BoltConnection] Make flush() private?
-  be flush() =>
+  // Must be public for sub-package access.
+  be receive_fields(fields: CypherList val) =>
+    _result_fields = fields
+
+  // Must be public for sub-package access.
+  be receive_result(result: CypherList val) =>
+    """"""
+    try
+      match _run_results_as(0)?
+      | Streamed =>
+        // Stream the result on to the session.
+        match _session
+        | let s: Session tag =>
+          s._receive_streamed_result(_result_fields as CypherList val, result)
+        end
+      | Buffered =>
+        // Add the result to the buffered results,
+        // to be sent to the session as a whole.
+        _buffered_results.push(result)
+      end
+    end
+
+  // Must be public for sub-package access.
+  be results_complete(meta: CypherMap val) =>
+    try
+      // If the connection is buffering results, send them to the session now.
+      let results_as = _run_results_as(0)?
+      if results_as is Buffered then
+        match _session
+        | let s: Session tag =>
+          let results = _buffered_results =
+            recover trn Array[CypherList val] end
+          s._receive_buffered_results(
+            _result_fields as CypherList val,
+            consume results)
+        end
+      end
+      // Remove the current results handling method.
+      _run_results_as.shift()?
+    end
+    // Pass on summary metadata to the session.
+    match _session
+    | let s: Session tag => s._success(meta)
+    end
+    _result_fields = None
+
+  // Must be public for sub-package access.
+  be results_incomplete(meta: CypherMap val) => None
+
+  be _flush() =>
     match _bolt_messenger
     | let m: BoltMessenger tag => m.flush()
     end

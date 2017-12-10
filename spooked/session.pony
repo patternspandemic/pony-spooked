@@ -20,14 +20,16 @@ interface SessionNotify
 
   fun ref result(
     session: Session ref,
-    result': CypherList val)
+    fields: CypherList val,
+    data: CypherList val)
   =>
     """"""
     None
 
   fun ref results(
     session: Session ref,
-    results': Array[CypherList val] val)
+    fields: CypherList val,
+    data: Array[CypherList val] val)
   =>
     """"""
     None
@@ -109,7 +111,7 @@ actor Session
     """ Ask the connection to send all pipelined requests. """
     match _connection
     | let c: BoltConnection tag =>
-      c.flush()
+      c._flush()
     end
 
   fun run(
@@ -127,8 +129,20 @@ actor Session
       c._run(statement, parameters, results_as)
     end
 
-  be _receive_streamed_result(result: CypherList val) => None
-  be _receive_buffered_results(results: Array[CypherList val] val) => None
+  be _receive_streamed_result(
+    fields: CypherList val,
+    result: CypherList val)
+  =>
+    _notify.result(this, fields, result)
+
+  be _receive_buffered_results(
+    fields: CypherList val,
+    results: Array[CypherList val] val)
+  =>
+    _notify.results(this, fields, results)
+
+  be _success(metadata: CypherMap val) =>
+    _notify.summary(this, metadata)
 
   // fun begin_transaction()
   // fun read_transaction()

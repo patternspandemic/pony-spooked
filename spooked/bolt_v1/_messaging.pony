@@ -157,9 +157,13 @@ class ResponseHandler
     | INIT => _bolt_conn.successfully_init(metadata)
     | ACKFAILURE => None // TODO
     | RESET => _bolt_conn.successfully_reset(metadata)
-    | RUN => None // TODO
-    | DISCARDALL => None // TODO
-    | PULLALL => None // TODO
+    | RUN =>
+      try
+        _bolt_conn.receive_fields(metadata.data("fields")? as CypherList val)
+      end
+    | DISCARDALL => None // Nothing to do.
+    | PULLALL =>
+      _bolt_conn.results_complete(metadata)
     end
 
   fun ref on_failure(metadata: CypherMap val) =>
@@ -185,11 +189,7 @@ class ResponseHandler
 
   fun ref on_record(data: CypherList val) =>
     _ignored = false
-    // TODO: Notify _bolt_conn of record
-    //  PULL_ALL
-
-  // fun complete(): Bool =>
-  //   _metadata isnt None
+    _bolt_conn.receive_result(data)
 
 
 actor BoltV1Messenger is BoltMessenger
@@ -199,7 +199,7 @@ actor BoltV1Messenger is BoltMessenger
   let _bolt_conn: BoltConnection tag
 
   // Pipelined client messages, packed ready for transport
-  let _requests: Array[ByteSeq]
+  var _requests: Array[ByteSeq] trn
   // Ordered response handlers for incoming server messages
   let _response_handlers: Array[ResponseHandler]
 
@@ -211,11 +211,11 @@ actor BoltV1Messenger is BoltMessenger
     _logger = logger
     _tcp_conn = tcp_conn
     _bolt_conn = bolt_conn
-    _requests = Array[ByteSeq]
+    _requests = recover trn Array[ByteSeq] end
     _response_handlers = Array[ResponseHandler]
 
   be init(config: Configuration val) =>
-    """Initialize the Bolt connection."""
+    """ Initialize the Bolt connection. """
     try
       _logger(Info) and _logger.log(
         "[Spooked] Info: Initializing connection...")
@@ -233,19 +233,39 @@ actor BoltV1Messenger is BoltMessenger
     parameters: CypherMap val,
     results_as: ReturnedResults)
   =>
-    """Add a Cypher statement to be run by the server."""
-    // TODO: [BoltV1Messenger] add_statement
-    // Pipeline RUN statements and later writev them in flush()
-    None
+    """ Pipeline a Cypher statement to be run by the server. """
+    try
+      _requests.push(RunMessage(statement, parameters)?)
+      _response_handlers.push(ResponseHandler(RUN, _bolt_conn, _logger))
+      match results_as
+      | Discarded =>
+        _requests.push(DiscardAllMessage())
+        _response_handlers.push(
+          ResponseHandler(DISCARDALL, _bolt_conn, _logger))
+      else
+        _requests.push(PullAllMessage())
+        _response_handlers.push(ResponseHandler(PULLALL, _bolt_conn, _logger))
+      end
+      _logger(Info) and _logger.log(
+        "[Spooked] Info: Pipelined statement.")
+    else
+      // Could not pack Run message.
+      _logger(Error) and _logger.log(
+        "[Spooked] Error: Could not pack RUN message.")
+      _bolt_conn.protocol_error() // TODO: Different error?
+    end
 
   be flush() =>
-    """Send all pipelined messages through the connection."""
+    """ Send all pipelined messages through the connection. """
     // TODO: [BoltV1Messenger] flush
     // _tcp_conn.writev all pipelined statements..
-    None
+    _logger(Info) and _logger.log(
+        "[Spooked] Info: Flushing pipeline...")
+    let requests = _requests = recover trn Array[ByteSeq] end
+    _tcp_conn.writev(consume requests)
 
   be reset() =>
-    """Reset the Bolt connection."""
+    """ Reset the Bolt connection. """
     _logger(Info) and _logger.log(
       "[Spooked] Info: Reseting connection...")
 

@@ -195,12 +195,31 @@ actor BoltConnection
     end
 
   // Must be public for sub-package access.
-  be receive_fields(fields: CypherList val) =>
-    _result_fields = fields
+  be successfully_run(meta: CypherMap val) =>
+    """ A statement was successfully run. """
+    try
+      _result_fields = meta.data("fields")? as CypherList val
+    end
+    // Pass on summary metadata to the session.
+    match _session
+    | let s: Session tag => s._success(meta)
+    end
+
+  // Must be public for sub-package access.
+  be ignored_run(meta: CypherMap val) =>
+    """ A statement was ignored. """
+    // TODO: [BoltConnection] ignored_run
+
+  // Must be public for sub-package access.
+  be failed_run(meta: CypherMap val) =>
+    """ A statement failed to run. """
+    match _session
+    | let s: Session tag => s._failure(meta)
+    end
 
   // Must be public for sub-package access.
   be receive_result(result: CypherList val) =>
-    """"""
+    """ Receive a streamed result record from the messenger. """
     try
       match _run_results_as(0)?
       | Streamed =>
@@ -217,7 +236,8 @@ actor BoltConnection
     end
 
   // Must be public for sub-package access.
-  be results_complete(meta: CypherMap val) =>
+  be successfully_streamed(meta: CypherMap val) =>
+    """ Successfully consumed the entire result stream. """
     try
       // If the connection is buffering results, send them to the session now.
       let results_as = _run_results_as(0)?
@@ -241,7 +261,21 @@ actor BoltConnection
     _result_fields = None
 
   // Must be public for sub-package access.
-  be results_incomplete(meta: CypherMap val) => None
+  be ignored_streamed(meta: CypherMap val) =>
+    """ A stream action was ignored. """
+    // TODO: [BoltConnection] ignored_streamed
+
+  // Must be public for sub-package access.
+  be failed_streamed(meta: CypherMap val) =>
+    """ Failed to consume the entire result stream. """
+    // Clear current results state.
+    try _run_results_as.shift()? end
+    _buffered_results .> clear() . compact()
+    _result_fields = None
+    // Pass on failure metadata to the session.
+    match _session
+    | let s: Session tag => s._failure(meta)
+    end
 
   be _flush() =>
     match _bolt_messenger
@@ -277,6 +311,7 @@ actor BoltConnection
   be reset() =>
     match _bolt_messenger
     | let m: BoltMessenger tag => m.reset()
+    // TODO: Reset state of the connection
     end
 
   // Must be public for sub-package access.

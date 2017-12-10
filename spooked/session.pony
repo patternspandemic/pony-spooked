@@ -144,6 +144,9 @@ actor Session
   be _success(metadata: CypherMap val) =>
     _notify.summary(this, metadata)
 
+  be _failure(metadata: CypherMap val) =>
+    _notify.failure(this, metadata)
+
   // fun begin_transaction()
   // fun read_transaction()
   // fun write_transaction()

@@ -112,10 +112,11 @@ primitive UNEXPECTED
 class ResponseHandler
   let _logger: Logger[String] val
   let _bolt_conn: BoltConnection tag
+  let _messenger: BoltV1Messenger tag
 
   let _request: ClientRequest
   // var _metadata: (CypherMap val | None) = None
-  var _ignored: (Bool | None) = None
+  // var _ignored: (Bool | None) = None
   var complete: Bool = false
   // Stream each record as it comes, don't store.
   // var records: (Array[CypherList val] trn | None) = None
@@ -123,9 +124,11 @@ class ResponseHandler
   new create(
     request: ClientRequest,
     bolt_conn: BoltConnection tag,
+    messenger: BoltV1Messenger tag,
     logger: Logger[String] val)
   =>
     _logger = logger
+    _messenger = messenger
     _bolt_conn = bolt_conn
     _request = request
 
@@ -150,45 +153,46 @@ class ResponseHandler
 
   fun ref on_success(metadata: CypherMap val) =>
     complete = true
-    // _metadata = data
-    _ignored = false
-    // TODO: Notify _bolt_conn of success w/metadata
+    // _ignored = false
     match _request
     | INIT => _bolt_conn.successfully_init(metadata)
-    | ACKFAILURE => None // TODO
+    | ACKFAILURE => None // Nothing to do.
     | RESET => _bolt_conn.successfully_reset(metadata)
-    | RUN =>
-      try
-        _bolt_conn.receive_fields(metadata.data("fields")? as CypherList val)
-      end
+    | RUN => _bolt_conn.successfully_run(metadata)
     | DISCARDALL => None // Nothing to do.
-    | PULLALL =>
-      _bolt_conn.results_complete(metadata)
+    | PULLALL =>_bolt_conn.successfully_streamed(metadata)
     end
 
   fun ref on_failure(metadata: CypherMap val) =>
     complete = true
-    // _metadata = data
-    _ignored = false
-    // TODO: Notify _bolt_conn of failure w/metadata, ACK_FAILURE needs to be
-    //    sent unless request was ACK_FAILURE
+    // _ignored = false
     match _request
     | INIT => _bolt_conn.failed_init(metadata)
-    | ACKFAILURE => None // TODO
+    | ACKFAILURE => None // Failure acknowledgement wasn't needed.
     | RESET => _bolt_conn.failed_reset(metadata)
-    | RUN => None // TODO
-    | DISCARDALL => None // TODO
-    | PULLALL => None // TODO
+    | RUN => _bolt_conn.failed_run(metadata)
+    | DISCARDALL => None // There was no result stream to discard.
+    | PULLALL =>
+      // Retrieval failed or no result stream was available.
+      _bolt_conn.failed_streamed(metadata)
     end
 
+    // Acknowledge this failure.
+    _messenger._acknowledge_failure()
+
   fun ref on_ignored(metadata: CypherMap val) =>
+    // Nothing to do but complete the handler.
     complete = true
-    // _metadata = data
-    _ignored = true
+    // _ignored = true
     // TODO: Notify _bolt_conn of ignore? w/metadata
+    // Not sure this is needed:
+    match _request
+    | RUN => _bolt_conn.ignored_run(metadata)
+    | PULLALL => _bolt_conn.ignored_streamed(metadata)
+    end
 
   fun ref on_record(data: CypherList val) =>
-    _ignored = false
+    // _ignored = false
     _bolt_conn.receive_result(data)
 
 
@@ -222,7 +226,7 @@ actor BoltV1Messenger is BoltMessenger
 
       // Send an INIT message immediately
       _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
-      _response_handlers.push(ResponseHandler(INIT, _bolt_conn, _logger))
+      _response_handlers.push(ResponseHandler(INIT, _bolt_conn, this, _logger))
     else
       // Unable to initialize connection
       _bolt_conn.protocol_error()
@@ -236,15 +240,16 @@ actor BoltV1Messenger is BoltMessenger
     """ Pipeline a Cypher statement to be run by the server. """
     try
       _requests.push(RunMessage(statement, parameters)?)
-      _response_handlers.push(ResponseHandler(RUN, _bolt_conn, _logger))
+      _response_handlers.push(ResponseHandler(RUN, _bolt_conn, this, _logger))
       match results_as
       | Discarded =>
         _requests.push(DiscardAllMessage())
         _response_handlers.push(
-          ResponseHandler(DISCARDALL, _bolt_conn, _logger))
+          ResponseHandler(DISCARDALL, _bolt_conn, this, _logger))
       else
         _requests.push(PullAllMessage())
-        _response_handlers.push(ResponseHandler(PULLALL, _bolt_conn, _logger))
+        _response_handlers.push(
+          ResponseHandler(PULLALL, _bolt_conn, this, _logger))
       end
       _logger(Info) and _logger.log(
         "[Spooked] Info: Pipelined statement.")
@@ -271,7 +276,17 @@ actor BoltV1Messenger is BoltMessenger
 
     // Send a RESET message immediately
     _tcp_conn.write(ResetMessage())
-    _response_handlers.push(ResponseHandler(RESET, _bolt_conn, _logger))
+    _response_handlers.push(ResponseHandler(RESET, _bolt_conn, this, _logger))
+
+  be _acknowledge_failure() =>
+    """ Acknowledge a failure message. """
+    _logger(Info) and _logger.log(
+      "[Spooked] Info: Acknowledging failure...")
+
+    // Send an ACKFAILURE message immediately
+    _tcp_conn.write(AckFailureMessage())
+    _response_handlers.push(
+      ResponseHandler(ACKFAILURE, _bolt_conn, this, _logger))
 
   be _handle_response_message(message: CypherStructure val) =>
     """ Handle a message response from the server. """

@@ -16,6 +16,8 @@ actor Main is TestList
     test(_TestConnectionHandshakeSuccess)
     test(_TestConnectionINITSuccess)
 
+    test(_TestSessionBasic)
+
 
 class iso _TestConnectionHandshakeSuccess is UnitTest
   fun name(): String =>
@@ -64,6 +66,49 @@ class iso _TestConnectionINITSuccess is UnitTest
           fun ref apply(session: Session ref) => None
           fun ref _initialized(session: Session ref) =>
             _h.complete(true)
+        end)
+    else
+      h.fail()
+    end
+
+class iso _TestSessionBasic is UnitTest
+  fun name(): String =>
+    "spooked/session/basic"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(2_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+
+          fun ref apply(session: Session ref) =>
+            session.run("RETURN 1 AS num")
+
+          fun ref result(
+            session: Session ref,
+            fields: CypherList val,
+            data: CypherList val)
+          =>
+            try
+              _h.assert_eq[String]("num", fields.data(0)? as CypherString val)
+              _h.assert_eq[I64](I64(1), data.data(0)? as CypherInteger)
+            end
+
+          fun ref summary(session: Session ref, meta: CypherMap val) =>
+            try
+              _h.assert_eq[String]("r", meta.data("type")? as CypherString val)
+            end
+            _h.complete(true)
+
         end)
     else
       h.fail()

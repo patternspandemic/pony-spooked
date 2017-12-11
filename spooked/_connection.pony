@@ -180,6 +180,11 @@ actor BoltConnection
     | let s: Session tag => s._error(InitializationError, meta)
     end
 
+  be _flush() =>
+    match _bolt_messenger
+    | let m: BoltMessenger tag => m.flush()
+    end
+
   be _run(
     statement: String val,
     parameters: CypherMap val,
@@ -277,36 +282,6 @@ actor BoltConnection
     | let s: Session tag => s._failure(meta)
     end
 
-  be _flush() =>
-    match _bolt_messenger
-    | let m: BoltMessenger tag => m.flush()
-    end
-
-  // Must be public for sub-package access.
-  be closed() =>
-    match _session
-    | let s: Session tag => s._closed()
-    end
-    _session = None
-    _bolt_messenger = None
-    _conn = None
-
-  be _set_session(session: Session) =>
-    if _session is None then
-      if _conn is None then
-        // Server closed on this pooled BoltConnection.
-        session._retry_acquire()
-      else
-        // Accept the session and send this BoltConnection
-        // to it signalling to go ahead.
-        session._receive_connection(this, true)
-        _session = session
-      end
-    end
-
-  be _clear_session() =>
-    _session = None
-
   // TODO: [BoltConnection] Make reset() private?
   be reset() =>
     match _bolt_messenger
@@ -329,6 +304,31 @@ actor BoltConnection
     match _session
     | let s: Session tag => s._failed_reset(this, meta)
     end
+
+  be _set_session(session: Session) =>
+    if _session is None then
+      if _conn is None then
+        // Server closed on this pooled BoltConnection.
+        session._retry_acquire()
+      else
+        // Accept the session and send this BoltConnection
+        // to it signalling to go ahead.
+        session._receive_connection(this, true)
+        _session = session
+      end
+    end
+
+  be _clear_session() =>
+      _session = None
+
+  // Must be public for sub-package access.
+  be closed() =>
+    match _session
+    | let s: Session tag => s._closed()
+    end
+    _session = None
+    _bolt_messenger = None
+    _conn = None
 
   // TODO: [BoltConnection] Make dispose() private?
   be dispose() =>

@@ -95,7 +95,7 @@ actor BoltConnection
   // The ordered list of field names for which each result contains data.
   var _result_fields: (CypherList val | None) = None
   // When results currently being streamed from the messenger should be
-  // returned to the session all at once, they're collected in this buffer.
+  // returned to the session all at once, they're collected in this buffer:
   var _buffered_results: Array[CypherList val] trn =
     recover trn Array[CypherList val] end
 
@@ -136,8 +136,6 @@ actor BoltConnection
     end
 
   be _version_negotiation_failed() =>
-    // TODO: [BoltConnection] Cleanup? Server closes connection,
-    //    Likely will get callback to _closed
     match _session
     | let s: Session tag => s._error(UnsupportedProtocolVersion)
     end
@@ -282,8 +280,7 @@ actor BoltConnection
     | let s: Session tag => s._failure(meta)
     end
 
-  // TODO: [BoltConnection] Make reset() private?
-  be reset() =>
+  be _reset() =>
     match _bolt_messenger
     | let m: BoltMessenger tag => m.reset()
     // TODO: Reset state of the connection
@@ -330,7 +327,6 @@ actor BoltConnection
     _bolt_messenger = None
     _conn = None
 
-  // TODO: [BoltConnection] Make dispose() private?
   be dispose() =>
     match _conn
     | let c: TCPConnection => c.dispose()
@@ -340,14 +336,18 @@ actor BoltConnection
 interface BoltMessenger
   """
   """
+
   be init(config: Configuration val)
-    """Initialize the Bolt connection."""
+    """ Initialize the Bolt connection. """
+
   be add_statement(
     statement: String val,
     parameters: CypherMap val,
     results_as: ReturnedResults)
-    """Add a Cypher statement to be run by the server."""
+    """ Add a Cypher statement to be run by the server. """
+
   be flush()
-    """Send all pipelined messages through the connection."""
+    """ Send all pipelined messages through the connection. """
+
   be reset()
-    """Reset the Bolt connection."""
+    """ Reset the Bolt connection. """

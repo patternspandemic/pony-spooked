@@ -14,7 +14,7 @@ type ReturnedResults is
 
 interface SessionNotify
   """ Notifications for Neo4j Bolt Sessions """
-  // TODO: [SessionNotify]
+
   fun ref apply(session: Session ref): None
     """"""
 
@@ -153,12 +153,11 @@ actor Session
 
   // TODO: [Session] reset: Maybe NOT expose publicly on session?
   //    Though, may be useful for retries, action after errors..
-  // be reset() =>
   fun reset() =>
     """ Reset the session. """
     match _connection
     | let c: BoltConnection tag =>
-      c.reset()
+      c._reset()
     end
 
   be _successfully_reset(connection: BoltConnection tag) =>
@@ -175,11 +174,11 @@ actor Session
     // TODO: [Session] _failed_reset
     //    ProtocolError?, close session? Does server close?
 
-  // TODO: [Session] _error
   be _error(err: _BoltConnectionError, data: (CypherMap val | None) = None) =>
     """"""
-    // Probably reset/dispose dep on error.
-    // Especially dispose on ProtocolError
+    // TODO: [Session] _error
+    //    Probably reset/dispose dep on error.
+    //    Especially dispose on ProtocolError
     match err
     | InitializationError => None
     end
@@ -198,7 +197,7 @@ actor Session
       match _connection
       | let c: BoltConnection tag =>
         if release_connection then
-          c.reset()
+          c._reset()
           _release_on_reset = true
         else
           c.dispose()

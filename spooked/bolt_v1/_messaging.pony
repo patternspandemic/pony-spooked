@@ -1,4 +1,3 @@
-// use "buffered"
 use "logger"
 use "net"
 
@@ -107,19 +106,14 @@ primitive RECORD
 primitive UNEXPECTED
 
 // TODO: [ResponseHandler]
-//  Special handling for resets
+//  Special handling for resets ? -> Should receive IGNORED for prior requests
 //  Logging of applied messages
 class ResponseHandler
   let _logger: Logger[String] val
   let _bolt_conn: BoltConnection tag
   let _messenger: BoltV1Messenger tag
-
   let _request: ClientRequest
-  // var _metadata: (CypherMap val | None) = None
-  // var _ignored: (Bool | None) = None
   var complete: Bool = false
-  // Stream each record as it comes, don't store.
-  // var records: (Array[CypherList val] trn | None) = None
 
   new create(
     request: ClientRequest,
@@ -137,7 +131,6 @@ class ResponseHandler
     metadata: (CypherMap val | CypherList val | None))
   =>
     """ Process the unpacked server response message. """
-    // TODO: [ResponseHandler] apply
     try
       match message
       | SUCCESS => on_success(metadata as CypherMap val)
@@ -153,7 +146,6 @@ class ResponseHandler
 
   fun ref on_success(metadata: CypherMap val) =>
     complete = true
-    // _ignored = false
     match _request
     | INIT => _bolt_conn.successfully_init(metadata)
     | ACKFAILURE => None // Nothing to do.
@@ -165,7 +157,6 @@ class ResponseHandler
 
   fun ref on_failure(metadata: CypherMap val) =>
     complete = true
-    // _ignored = false
     match _request
     | INIT => _bolt_conn.failed_init(metadata)
     | ACKFAILURE => None // Failure acknowledgement wasn't needed.
@@ -181,18 +172,13 @@ class ResponseHandler
     _messenger._acknowledge_failure()
 
   fun ref on_ignored(metadata: CypherMap val) =>
-    // Nothing to do but complete the handler.
     complete = true
-    // _ignored = true
-    // TODO: Notify _bolt_conn of ignore? w/metadata
-    // Not sure this is needed:
     match _request
     | RUN => _bolt_conn.ignored_run(metadata)
     | PULLALL => _bolt_conn.ignored_streamed(metadata)
     end
 
   fun ref on_record(data: CypherList val) =>
-    // _ignored = false
     _bolt_conn.receive_result(data)
 
 
@@ -262,10 +248,9 @@ actor BoltV1Messenger is BoltMessenger
 
   be flush() =>
     """ Send all pipelined messages through the connection. """
-    // TODO: [BoltV1Messenger] flush
-    // _tcp_conn.writev all pipelined statements..
     _logger(Info) and _logger.log(
         "[Spooked] Info: Flushing pipeline...")
+
     let requests = _requests = recover trn Array[ByteSeq] end
     _tcp_conn.writev(consume requests)
 
@@ -283,7 +268,7 @@ actor BoltV1Messenger is BoltMessenger
     _logger(Info) and _logger.log(
       "[Spooked] Info: Acknowledging failure...")
 
-    // Send an ACKFAILURE message immediately
+    // Send an ACK_FAILURE message immediately
     _tcp_conn.write(AckFailureMessage())
     _response_handlers.push(
       ResponseHandler(ACKFAILURE, _bolt_conn, this, _logger))

@@ -145,24 +145,26 @@ class ResponseHandler
     end
 
   fun ref on_success(metadata: CypherMap val) =>
+    """ Request was successful. """
     complete = true
     match _request
     | INIT => _bolt_conn.successfully_init(metadata)
-    | ACKFAILURE => None // Nothing to do.
+    // | ACKFAILURE => None // Failure acknowledgement received. Nothing to do.
     | RESET => _bolt_conn.successfully_reset(metadata)
     | RUN => _bolt_conn.successfully_run(metadata)
-    | DISCARDALL => None // Nothing to do.
+    // | DISCARDALL => None // Stream discarded as intended. Nothing to do.
     | PULLALL =>_bolt_conn.successfully_streamed(metadata)
     end
 
   fun ref on_failure(metadata: CypherMap val) =>
+    """ Request failed. """
     complete = true
     match _request
     | INIT => _bolt_conn.failed_init(metadata)
-    | ACKFAILURE => None // Failure acknowledgement wasn't needed.
+    // | ACKFAILURE => None // Failure acknowledgement wasn't needed.
     | RESET => _bolt_conn.failed_reset(metadata)
     | RUN => _bolt_conn.failed_run(metadata)
-    | DISCARDALL => None // There was no result stream to discard.
+    // | DISCARDALL => None // There was no result stream to discard.
     | PULLALL =>
       // Retrieval failed or no result stream was available.
       _bolt_conn.failed_streamed(metadata)
@@ -172,13 +174,16 @@ class ResponseHandler
     _messenger._acknowledge_failure()
 
   fun ref on_ignored(metadata: CypherMap val) =>
+    """ Request was ignored due to previous failure. """
     complete = true
     match _request
-    | RUN => _bolt_conn.ignored_run(metadata)
-    | PULLALL => _bolt_conn.ignored_streamed(metadata)
+    | RUN => _bolt_conn.failed_run(metadata) //ignored_run(metadata)
+    | PULLALL => _bolt_conn.failed_streamed(metadata) //ignored_streamed(metadata)
+    // | DISCARDALL => None // Nothing was expected. Nothing to do.
     end
 
   fun ref on_record(data: CypherList val) =>
+    """ A record as part of a PULL_ALL request was received. """
     _bolt_conn.receive_result(data)
 
 

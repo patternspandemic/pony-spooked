@@ -208,10 +208,16 @@ actor BoltConnection
     | let s: Session tag => s._success(meta)
     end
 
+/*
   // Must be public for sub-package access.
   be ignored_run(meta: CypherMap val) =>
     """ A statement was ignored. """
     // TODO: [BoltConnection] ignored_run
+    //    Just use failed_run?
+    match _session
+    | let s: Session tag => s._failure(meta)
+    end
+*/
 
   // Must be public for sub-package access.
   be failed_run(meta: CypherMap val) =>
@@ -263,10 +269,13 @@ actor BoltConnection
     end
     _result_fields = None
 
+/*
   // Must be public for sub-package access.
   be ignored_streamed(meta: CypherMap val) =>
     """ A stream action was ignored. """
     // TODO: [BoltConnection] ignored_streamed
+    //    Just using failed_streamed.
+*/
 
   // Must be public for sub-package access.
   be failed_streamed(meta: CypherMap val) =>
@@ -335,10 +344,12 @@ actor BoltConnection
 
 interface BoltMessenger
   """
+  The interface to a versioned Bolt protocol messenger, which coordinates the
+  details of message handling, transport, and message serialization specific to the version.
   """
 
   be init(config: Configuration val)
-    """ Initialize the Bolt connection. """
+    """ Initialize the versioned Bolt connection. """
 
   be add_statement(
     statement: String val,
@@ -347,7 +358,7 @@ interface BoltMessenger
     """ Add a Cypher statement to be run by the server. """
 
   be flush()
-    """ Send all pipelined messages through the connection. """
+    """ Send all pipelined messages through the underlying TCP connection. """
 
   be reset()
-    """ Reset the Bolt connection. """
+    """ Reset the versioned Bolt connection. """

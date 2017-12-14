@@ -252,12 +252,14 @@ actor BoltV1Messenger is BoltMessenger
     end
 
   be flush() =>
-    """ Send all pipelined messages through the connection. """
-    _logger(Info) and _logger.log(
-        "[Spooked] Info: Flushing pipeline...")
+    """ Send any pipelined messages through the connection. """
+    if _requests.size() > 0 then
+      _logger(Info) and _logger.log(
+          "[Spooked] Info: Flushing pipeline...")
 
-    let requests = _requests = recover trn Array[ByteSeq] end
-    _tcp_conn.writev(consume requests)
+      let requests = _requests = recover trn Array[ByteSeq] end
+      _tcp_conn.writev(consume requests)
+    end
 
   be reset() =>
     """ Reset the Bolt connection. """

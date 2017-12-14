@@ -17,6 +17,9 @@ actor Main is TestList
     test(_TestConnectionINITSuccess)
 
     test(_TestSessionBasic)
+    test(_TestSessionPipelined)
+    test(_TestSessionReset)
+    test(_TestSessionFailure)
 
 
 class iso _TestConnectionHandshakeSuccess is UnitTest
@@ -108,6 +111,126 @@ class iso _TestSessionBasic is UnitTest
               _h.assert_eq[String]("r", meta.data("type")? as CypherString val)
             end
             _h.complete(true)
+
+        end)
+    else
+      h.fail()
+    end
+
+class iso _TestSessionPipelined is UnitTest
+  fun name(): String =>
+    "spooked/session/pipelined"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(2_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+          var _summary_count: USize = 0
+
+          fun ref apply(session: Session ref) =>
+            session.run("RETURN 1 AS one")
+            session.run("RETURN 2 AS two")
+
+          fun ref result(
+            session: Session ref,
+            fields: CypherList val,
+            data: CypherList val)
+          =>
+            try
+              match fields.data(0)? as CypherString val
+              | "one" =>
+                _h.assert_eq[I64](I64(1), data.data(0)? as CypherInteger)
+              | "two" =>
+                _h.assert_eq[I64](I64(2), data.data(0)? as CypherInteger)
+              else
+                _h.fail()
+              end
+            end
+
+          fun ref summary(session: Session ref, meta: CypherMap val) =>
+            try
+              _h.assert_eq[String]("r", meta.data("type")? as CypherString val)
+              _summary_count = _summary_count + 1
+            end
+            if _summary_count == 2 then
+              _h.complete(true)
+            end
+
+        end)
+    else
+      h.fail()
+    end
+
+class iso _TestSessionReset is UnitTest
+  fun name(): String =>
+    "spooked/session/reset"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(2_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+
+          fun ref apply(session: Session ref) =>
+            session.reset()
+
+          fun ref reset(session: Session ref) =>
+            _h.complete(true)
+
+        end)
+    else
+      h.fail()
+    end
+
+class iso _TestSessionFailure is UnitTest
+  fun name(): String =>
+    "spooked/session/failure"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(2_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+
+          fun ref apply(session: Session ref) =>
+            session.run("This will cause a syntax error")
+
+          fun ref failure(session: Session ref, meta: CypherMap val) =>
+            try
+              _h.assert_eq[String](
+                "Neo.ClientError.Statement.SyntaxError",
+                meta.data("code")? as CypherString val)
+            end
+            // _h.complete(true)
+            // TODO: [_TestSessionFailure] What about IGNORED?
 
         end)
     else

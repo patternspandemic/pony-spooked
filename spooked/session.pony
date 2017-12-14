@@ -1,15 +1,10 @@
 use "logger"
 use "net"
 
-primitive Streamed
-primitive Buffered
-primitive Discarded
 
-type ReturnedResults is
-  ( Streamed
-  | Buffered
-  | Discarded
-  )
+interface CypherStatement
+  """"""
+  fun template(): String val
 
 
 interface SessionNotify
@@ -20,6 +15,7 @@ interface SessionNotify
 
   fun ref result(
     session: Session ref,
+    statement: CypherStatement val,
     fields: CypherList val,
     data: CypherList val)
   =>
@@ -28,17 +24,31 @@ interface SessionNotify
 
   fun ref results(
     session: Session ref,
+    statement: CypherStatement val,
     fields: CypherList val,
     data: Array[CypherList val] val)
   =>
     """"""
     None
 
-  fun ref summary(session: Session ref, meta: CypherMap val) =>
+  fun ref summary(
+    session: Session ref,
+    statement: CypherStatement val,
+    meta: CypherMap val) =>
     """"""
     None
 
-  fun ref failure(session: Session ref, meta: CypherMap val) =>
+  fun ref failure(
+    session: Session ref,
+    statement: CypherStatement val,
+    meta: CypherMap val) =>
+    """"""
+    None
+
+  fun ref ignored(
+    session: Session ref,
+    statement: CypherStatement val,
+    meta: CypherMap val) =>
     """"""
     None
 
@@ -55,6 +65,17 @@ interface SessionNotify
   // Internally Used
   fun ref _handshook(session: Session ref) => None
   fun ref _initialized(session: Session ref) => None
+
+
+primitive Streamed
+primitive Buffered
+primitive Discarded
+
+type ReturnedResults is
+  ( Streamed
+  | Buffered
+  | Discarded
+  )
 
 
 // TODO: [Session] Logging
@@ -115,12 +136,12 @@ actor Session
     end
 
   fun run(
-    statement: String val,
+    statement: CypherStatement val,
     parameters: CypherMap val = CypherMap.empty(),
     results_as: ReturnedResults = Streamed)
   =>
     """
-    Pass a templated Cypher statement and its parameters along for execution on
+    Pass a CypherStatement and its parameters along for execution on
     the server. Specify whether results are `Streamed` one by one (default),
     `Buffered` and returned as a whole, or `Discarded`.
     """
@@ -130,22 +151,36 @@ actor Session
     end
 
   be _receive_streamed_result(
+    statement: CypherStatement val,
     fields: CypherList val,
     result: CypherList val)
   =>
-    _notify.result(this, fields, result)
+    _notify.result(this, statement, fields, result)
 
   be _receive_buffered_results(
+    statement: CypherStatement val,
     fields: CypherList val,
     results: Array[CypherList val] val)
   =>
-    _notify.results(this, fields, results)
+    _notify.results(this, statement, fields, results)
 
-  be _success(metadata: CypherMap val) =>
-    _notify.summary(this, metadata)
+  be _success(
+    statement: CypherStatement val,
+    metadata: CypherMap val)
+  =>
+    _notify.summary(this, statement, metadata)
 
-  be _failure(metadata: CypherMap val) =>
-    _notify.failure(this, metadata)
+  be _failure(
+    statement: CypherStatement val,
+    metadata: CypherMap val)
+  =>
+    _notify.failure(this, statement, metadata)
+
+  be _ignored(
+    statement: CypherStatement val,
+    metadata: CypherMap val)
+  =>
+    _notify.ignored(this, statement, metadata)
 
   // fun begin_transaction()
   // fun read_transaction()

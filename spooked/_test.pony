@@ -20,6 +20,7 @@ actor Main is TestList
     test(_TestSessionPipelined)
     test(_TestSessionReset)
     test(_TestSessionFailure)
+    test(_TestSessionIgnored)
 
 
 class iso _TestConnectionHandshakeSuccess is UnitTest
@@ -74,6 +75,9 @@ class iso _TestConnectionINITSuccess is UnitTest
       h.fail()
     end
 
+primitive StatementReturn1AsNum
+  fun template(): String val => "RETURN 1 AS num"
+
 class iso _TestSessionBasic is UnitTest
   fun name(): String =>
     "spooked/session/basic"
@@ -94,19 +98,26 @@ class iso _TestSessionBasic is UnitTest
           let _h: TestHelper = h
 
           fun ref apply(session: Session ref) =>
-            session.run("RETURN 1 AS num")
+            session.run(StatementReturn1AsNum)
 
           fun ref result(
             session: Session ref,
+            statement: CypherStatement val,
             fields: CypherList val,
             data: CypherList val)
           =>
             try
+              _h.assert_is[CypherStatement val](
+                StatementReturn1AsNum, statement)
               _h.assert_eq[String]("num", fields.data(0)? as CypherString val)
               _h.assert_eq[I64](I64(1), data.data(0)? as CypherInteger)
             end
 
-          fun ref summary(session: Session ref, meta: CypherMap val) =>
+          fun ref summary(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
             try
               _h.assert_eq[String]("r", meta.data("type")? as CypherString val)
             end
@@ -116,6 +127,12 @@ class iso _TestSessionBasic is UnitTest
     else
       h.fail()
     end
+
+primitive StatementReturn1AsOne
+  fun template(): String val => "RETURN 1 AS one"
+
+primitive StatementReturn2AsTwo
+  fun template(): String val => "RETURN 2 AS two"
 
 class iso _TestSessionPipelined is UnitTest
   fun name(): String =>
@@ -138,26 +155,33 @@ class iso _TestSessionPipelined is UnitTest
           var _summary_count: USize = 0
 
           fun ref apply(session: Session ref) =>
-            session.run("RETURN 1 AS one")
-            session.run("RETURN 2 AS two")
+            session.run(StatementReturn1AsOne)
+            session.run(StatementReturn2AsTwo)
 
           fun ref result(
             session: Session ref,
+            statement: CypherStatement val,
             fields: CypherList val,
             data: CypherList val)
           =>
             try
-              match fields.data(0)? as CypherString val
-              | "one" =>
+              match statement
+              | StatementReturn1AsOne =>
+                _h.assert_eq[String]("one", fields.data(0)? as CypherString val)
                 _h.assert_eq[I64](I64(1), data.data(0)? as CypherInteger)
-              | "two" =>
+              | StatementReturn2AsTwo =>
+                _h.assert_eq[String]("two", fields.data(0)? as CypherString val)
                 _h.assert_eq[I64](I64(2), data.data(0)? as CypherInteger)
               else
                 _h.fail()
               end
             end
 
-          fun ref summary(session: Session ref, meta: CypherMap val) =>
+          fun ref summary(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
             try
               _h.assert_eq[String]("r", meta.data("type")? as CypherString val)
               _summary_count = _summary_count + 1
@@ -201,6 +225,9 @@ class iso _TestSessionReset is UnitTest
       h.fail()
     end
 
+primitive StatementWithSyntaxError
+  fun template(): String val => "This will cause a syntax error"
+
 class iso _TestSessionFailure is UnitTest
   fun name(): String =>
     "spooked/session/failure"
@@ -221,16 +248,71 @@ class iso _TestSessionFailure is UnitTest
           let _h: TestHelper = h
 
           fun ref apply(session: Session ref) =>
-            session.run("This will cause a syntax error")
+            session.run(StatementWithSyntaxError)
 
-          fun ref failure(session: Session ref, meta: CypherMap val) =>
+          fun ref failure(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
             try
+              _h.assert_is[CypherStatement val](
+                StatementWithSyntaxError, statement)
               _h.assert_eq[String](
                 "Neo.ClientError.Statement.SyntaxError",
                 meta.data("code")? as CypherString val)
             end
-            // _h.complete(true)
-            // TODO: [_TestSessionFailure] What about IGNORED?
+            _h.complete(true)
+
+        end)
+    else
+      h.fail()
+    end
+
+class iso _TestSessionIgnored is UnitTest
+  fun name(): String =>
+    "spooked/session/ignored"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(2_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+
+          fun ref apply(session: Session ref) =>
+            session.run(StatementWithSyntaxError)
+            session.run(StatementReturn1AsNum) // To be ignored
+
+          fun ref failure(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
+            try
+              _h.assert_is[CypherStatement val](
+                StatementWithSyntaxError, statement)
+              _h.assert_eq[String](
+                "Neo.ClientError.Statement.SyntaxError",
+                meta.data("code")? as CypherString val)
+            end
+
+          fun ref ignored(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
+            _h.assert_is[CypherStatement val](
+              StatementReturn1AsNum, statement)
+            _h.complete(true)
 
         end)
     else

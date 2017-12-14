@@ -184,7 +184,7 @@ actor BoltConnection
     end
 
   be _run(
-    statement: String val,
+    statement: CypherStatement val,
     parameters: CypherMap val,
     results_as: ReturnedResults)
   =>
@@ -198,36 +198,45 @@ actor BoltConnection
     end
 
   // Must be public for sub-package access.
-  be successfully_run(meta: CypherMap val) =>
+  be successfully_run(
+    statement: CypherStatement val,
+    meta: CypherMap val)
+  =>
     """ A statement was successfully run. """
     try
       _result_fields = meta.data("fields")? as CypherList val
     end
     // Pass on summary metadata to the session.
     match _session
-    | let s: Session tag => s._success(meta)
+    | let s: Session tag => s._success(statement, meta)
     end
 
-/*
   // Must be public for sub-package access.
-  be ignored_run(meta: CypherMap val) =>
+  be ignored_run(
+    statement: CypherStatement val,
+    meta: CypherMap val)
+  =>
     """ A statement was ignored. """
     // TODO: [BoltConnection] ignored_run
-    //    Just use failed_run?
     match _session
-    | let s: Session tag => s._failure(meta)
+    | let s: Session tag => s._ignored(statement, meta)
     end
-*/
 
   // Must be public for sub-package access.
-  be failed_run(meta: CypherMap val) =>
+  be failed_run(
+    statement: CypherStatement val,
+    meta: CypherMap val)
+  =>
     """ A statement failed to run. """
     match _session
-    | let s: Session tag => s._failure(meta)
+    | let s: Session tag => s._failure(statement, meta)
     end
 
   // Must be public for sub-package access.
-  be receive_result(result: CypherList val) =>
+  be receive_result(
+    statement: CypherStatement val,
+    result: CypherList val)
+  =>
     """ Receive a streamed result record from the messenger. """
     try
       match _run_results_as(0)?
@@ -235,7 +244,10 @@ actor BoltConnection
         // Stream the result on to the session.
         match _session
         | let s: Session tag =>
-          s._receive_streamed_result(_result_fields as CypherList val, result)
+          s._receive_streamed_result(
+            statement,
+            _result_fields as CypherList val,
+            result)
         end
       | Buffered =>
         // Add the result to the buffered results,
@@ -245,7 +257,10 @@ actor BoltConnection
     end
 
   // Must be public for sub-package access.
-  be successfully_streamed(meta: CypherMap val) =>
+  be successfully_streamed(
+    statement: CypherStatement val,
+    meta: CypherMap val)
+  =>
     """ Successfully consumed the entire result stream. """
     try
       // If the connection is buffering results, send them to the session now.
@@ -256,6 +271,7 @@ actor BoltConnection
           let results = _buffered_results =
             recover trn Array[CypherList val] end
           s._receive_buffered_results(
+            statement,
             _result_fields as CypherList val,
             consume results)
         end
@@ -265,7 +281,7 @@ actor BoltConnection
     end
     // Pass on summary metadata to the session.
     match _session
-    | let s: Session tag => s._success(meta)
+    | let s: Session tag => s._success(statement, meta)
     end
     _result_fields = None
 
@@ -274,11 +290,17 @@ actor BoltConnection
   be ignored_streamed(meta: CypherMap val) =>
     """ A stream action was ignored. """
     // TODO: [BoltConnection] ignored_streamed
-    //    Just using failed_streamed.
+    //    I think this is unneeded, as an ignored request of streamed data is
+    //    due to failure / ignore of previous pipelined RUN. In which case the
+    //    client will have been notified of failure / ignore, and should expect
+    //    any result streams to be ignored in such a case.
 */
 
   // Must be public for sub-package access.
-  be failed_streamed(meta: CypherMap val) =>
+  be failed_streamed(
+    statement: CypherStatement val,
+    meta: CypherMap val)
+  =>
     """ Failed to consume the entire result stream. """
     // Clear current results state.
     try _run_results_as.shift()? end
@@ -286,7 +308,7 @@ actor BoltConnection
     _result_fields = None
     // Pass on failure metadata to the session.
     match _session
-    | let s: Session tag => s._failure(meta)
+    | let s: Session tag => s._failure(statement, meta)
     end
 
   be _reset() =>
@@ -352,7 +374,7 @@ interface BoltMessenger
     """ Initialize the versioned Bolt connection. """
 
   be add_statement(
-    statement: String val,
+    statement: CypherStatement val,
     parameters: CypherMap val,
     results_as: ReturnedResults)
     """ Add a Cypher statement to be run by the server. """

@@ -106,13 +106,13 @@ primitive RECORD
 primitive UNEXPECTED
 
 // TODO: [ResponseHandler]
-//  Special handling for resets ? -> Should receive IGNORED for prior requests
-//  Logging of applied messages
+//    Logging of applied messages, S:, C: style
 class ResponseHandler
   let _logger: Logger[String] val
   let _bolt_conn: BoltConnection tag
   let _messenger: BoltV1Messenger tag
   let _request: ClientRequest
+  var statement: (CypherStatement val | None) = None
   var complete: Bool = false
 
   new create(
@@ -151,9 +151,19 @@ class ResponseHandler
     | INIT => _bolt_conn.successfully_init(metadata)
     // | ACKFAILURE => None // Failure acknowledgement received. Nothing to do.
     | RESET => _bolt_conn.successfully_reset(metadata)
-    | RUN => _bolt_conn.successfully_run(metadata)
+    | RUN =>
+      try
+        _bolt_conn.successfully_run(
+          statement as CypherStatement val,
+          metadata)
+      end
     // | DISCARDALL => None // Stream discarded as intended. Nothing to do.
-    | PULLALL =>_bolt_conn.successfully_streamed(metadata)
+    | PULLALL =>
+      try
+        _bolt_conn.successfully_streamed(
+          statement as CypherStatement val,
+          metadata)
+      end
     end
 
   fun ref on_failure(metadata: CypherMap val) =>
@@ -163,11 +173,20 @@ class ResponseHandler
     | INIT => _bolt_conn.failed_init(metadata)
     // | ACKFAILURE => None // Failure acknowledgement wasn't needed.
     | RESET => _bolt_conn.failed_reset(metadata)
-    | RUN => _bolt_conn.failed_run(metadata)
+    | RUN =>
+      try
+        _bolt_conn.failed_run(
+          statement as CypherStatement val,
+          metadata)
+      end
     // | DISCARDALL => None // There was no result stream to discard.
     | PULLALL =>
-      // Retrieval failed or no result stream was available.
-      _bolt_conn.failed_streamed(metadata)
+      try
+        // Retrieval failed or no result stream was available.
+        _bolt_conn.failed_streamed(
+          statement as CypherStatement val,
+          metadata)
+      end
     end
 
     // Acknowledge this failure.
@@ -177,15 +196,25 @@ class ResponseHandler
     """ Request was ignored due to previous failure. """
     complete = true
     match _request
-    | RUN => _bolt_conn.failed_run(metadata) //ignored_run(metadata)
-    | PULLALL => _bolt_conn.failed_streamed(metadata) //ignored_streamed(metadata)
+    | RUN =>
+      try
+        _bolt_conn.ignored_run(
+          statement as CypherStatement val,
+          metadata)
+      end
+    // | PULLALL => None
+      // Client will have received FAILURE or IGNORED for previous RUN and
+      // should know not to expect its data.
     // | DISCARDALL => None // Nothing was expected. Nothing to do.
     end
 
   fun ref on_record(data: CypherList val) =>
     """ A record as part of a PULL_ALL request was received. """
-    _bolt_conn.receive_result(data)
-
+    try
+      _bolt_conn.receive_result(
+        statement as CypherStatement val,
+        data)
+    end
 
 actor BoltV1Messenger is BoltMessenger
   """ Creates and processes Bolt v1 protocol messages. """
@@ -197,6 +226,8 @@ actor BoltV1Messenger is BoltMessenger
   var _requests: Array[ByteSeq] trn
   // Ordered response handlers for incoming server messages
   let _response_handlers: Array[ResponseHandler]
+  // A cached empty map for returning a message's non-existent metadata
+  let _empty_map: CypherMap val
 
   new create(
     bolt_conn: BoltConnection tag,
@@ -208,6 +239,7 @@ actor BoltV1Messenger is BoltMessenger
     _bolt_conn = bolt_conn
     _requests = recover trn Array[ByteSeq] end
     _response_handlers = Array[ResponseHandler]
+    _empty_map = CypherMap.empty()
 
   be init(config: Configuration val) =>
     """ Initialize the Bolt connection. """
@@ -224,14 +256,16 @@ actor BoltV1Messenger is BoltMessenger
     end
 
   be add_statement(
-    statement: String val,
+    statement: CypherStatement val,
     parameters: CypherMap val,
     results_as: ReturnedResults)
   =>
     """ Pipeline a Cypher statement to be run by the server. """
     try
-      _requests.push(RunMessage(statement, parameters)?)
-      _response_handlers.push(ResponseHandler(RUN, _bolt_conn, this, _logger))
+      _requests.push(RunMessage(statement.template(), parameters)?)
+      let run_handler = ResponseHandler(RUN, _bolt_conn, this, _logger)
+      run_handler.statement = statement
+      _response_handlers.push(run_handler)
       match results_as
       | Discarded =>
         _requests.push(DiscardAllMessage())
@@ -239,8 +273,9 @@ actor BoltV1Messenger is BoltMessenger
           ResponseHandler(DISCARDALL, _bolt_conn, this, _logger))
       else
         _requests.push(PullAllMessage())
-        _response_handlers.push(
-          ResponseHandler(PULLALL, _bolt_conn, this, _logger))
+        let pull_handler = ResponseHandler(PULLALL, _bolt_conn, this, _logger)
+        pull_handler.statement = statement
+        _response_handlers.push(pull_handler)
       end
       _logger(Info) and _logger.log(
         "[Spooked] Info: Pipelined statement.")
@@ -304,13 +339,15 @@ actor BoltV1Messenger is BoltMessenger
             flds(0)? as CypherList val
           else
             // Success, Failure, and Ignored data is a map
-            flds(0)? as CypherMap val
+            try
+              flds(0)? as CypherMap val
+            else
+              // Fields list was empty, substitute an empty map.
+              _empty_map // CypherMap.empty()
+            end
           end
         else
-          // TODO: [BoltV1Messenger] _handle_response_message
-          //    message.fields is unexpected type / None. There may
-          //    be a chance IGNORED provides no data?
-          // CypherMap.empty() // TODO: cache
+          // message.fields is unexpectedly None.
           None
         end
 

@@ -2,14 +2,44 @@ use "buffered"
 use "logger"
 use "net"
 
+use "./bolt_v1"
+
+
+/* Bolt Protocol Version Helpers */
+
 primitive _ProtocolVersionNone
   fun apply(): U32 => U32(0)
 
+primitive _ProtocolVersionOne
+  """ Helper to supply the versioned messenger/notifier for BoltV1 """
+  fun apply(): U32 => U32(1)
+
+  fun messenger(
+    bolt_conn: BoltConnection tag,
+    tcp_conn: TCPConnection tag,
+    logger: Logger[String] val)
+    : BoltV1Messenger tag^
+  =>
+    BoltV1Messenger(bolt_conn, tcp_conn, logger)
+
+  fun notify(
+    bolt_conn: BoltConnection tag,
+    v1_messenger: BoltV1Messenger tag,
+    logger: Logger[String] val)
+    : BoltV1ConnectionNotify iso^
+  =>
+    BoltV1ConnectionNotify(bolt_conn, v1_messenger, logger)
+
 primitive _PreferredProtocolVersions
-  fun  first(): U32 => U32(1)
+  """ Bolt Protocol versions supported by Spooked. """
+  // Update as new versions become supported.
+  fun  first(): U32 => _ProtocolVersionOne()
   fun second(): U32 => _ProtocolVersionNone()
   fun  third(): U32 => _ProtocolVersionNone()
   fun  forth(): U32 => _ProtocolVersionNone()
+
+
+/* Handshake */
 
 primitive _GoGoBolt
   """Bolt Protocol Preamble"""
@@ -29,7 +59,6 @@ primitive _ProposedProtocolVersions
       b.append(chunk)
     end
     consume b
-
 
 class _Handshake is TCPConnectionNotify
   let _logger: Logger[String] val
@@ -91,17 +120,18 @@ class _Handshake is TCPConnectionNotify
 
         _connection._version_negotiation_failed()
 
-      | _PreferredProtocolVersions.first()
-      | _PreferredProtocolVersions.second()
-      | _PreferredProtocolVersions.third()
-      | _PreferredProtocolVersions.forth()
+      | _ProtocolVersionOne()
       =>
-        // One of the preferred protocol versions was supported by the server.
+        // Protocol versions 1 was supported by the server.
         _logger(Info) and _logger.log(
           "[Spooked] Info: Agreed upon Bolt v" +
           chosen_protocol_version.string())
 
-        _connection._handshook(chosen_protocol_version)
+        let messenger =
+          _ProtocolVersionOne.messenger(_connection, conn, _logger)
+        let notify =
+          _ProtocolVersionOne.notify(_connection, messenger, _logger)
+        _connection._handshook(messenger, consume notify)
 
       else
         // Odd, the server wants to use a version we didn't suggest.

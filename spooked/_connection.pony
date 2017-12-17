@@ -3,7 +3,7 @@ use "logger"
 use "net"
 use "net/ssl"
 
-use "./bolt_v1"
+// use "./bolt_v1"
 
 primitive ServiceUnavailable
 primitive UnsupportedProtocolVersion
@@ -140,16 +140,19 @@ actor BoltConnection
     | let s: Session tag => s._error(UnsupportedProtocolVersion)
     end
 
-  be _handshook(version: U32) =>
-    // TODO: [BoltConnection] Change TCP notify based on version
-    //    - Use a better version to BoltConnectionNotify mapping
+  be _handshook(
+    messenger: BoltMessenger tag,
+    notify: TCPConnectionNotify iso)
+  =>
+    // TODO: [BoltConnection] _handshook
     //    - Setup _conn details from config?
     match _conn
     | let c: TCPConnection =>
-      let bolt_messenger = BoltV1Messenger(this, c, _logger)
-      c.set_notify(BoltV1ConnectionNotify(this, bolt_messenger, _logger))
-      bolt_messenger.init(_config)
-      _bolt_messenger = bolt_messenger
+      // Set the versioned notifier on the TCP connection
+      c.set_notify(consume notify)
+      // Initialize the versioned connection
+      messenger.init(_config)
+      _bolt_messenger = messenger
     end
     match _session
     | let s: Session tag => s._handshook()

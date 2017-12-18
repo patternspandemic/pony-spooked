@@ -1,3 +1,4 @@
+use "format"
 use "logger"
 use "net"
 
@@ -104,6 +105,7 @@ primitive RECORD
   fun string(): String => "RECORD"
 
 primitive UNEXPECTED
+  fun string(): String => "UNEXPECTED"
 
 // TODO: [ResponseHandler]
 //    Logging of applied messages, S:, C: style
@@ -137,11 +139,13 @@ class ResponseHandler
       | FAILURE => on_failure(metadata as CypherMap val)
       | IGNORED => on_ignored(metadata as CypherMap val)
       | RECORD  =>  on_record(metadata as CypherList val)
-      | UNEXPECTED =>
-        // TODO: [ResponseHandler] apply, UNEXPECTED match
-        //  Other cleanup?
-        _bolt_conn.protocol_error()
+      | UNEXPECTED => error
       end
+    else
+      // TODO: [ResponseHandler] apply, error with metadata `as`, UNEXPECTED
+      //  Other cleanup?
+      complete = true
+      _bolt_conn.protocol_error()
     end
 
   fun ref on_success(metadata: CypherMap val) =>
@@ -245,7 +249,7 @@ actor BoltV1Messenger is BoltMessenger
     """ Initialize the Bolt connection. """
     try
       _logger(Info) and _logger.log(
-        "[Spooked] Info: Initializing connection...")
+        "[Spooked] Info: (bolt_v1) Initializing connection...")
 
       // Send an INIT message immediately
       _tcp_conn.write(InitMessage(config.user_agent, config.auth)?)
@@ -278,11 +282,11 @@ actor BoltV1Messenger is BoltMessenger
         _response_handlers.push(pull_handler)
       end
       _logger(Info) and _logger.log(
-        "[Spooked] Info: Pipelined statement.")
+        "[Spooked] Info: (bolt_v1) Pipelined statement.")
     else
       // Could not pack Run message.
       _logger(Error) and _logger.log(
-        "[Spooked] Error: Could not pack RUN message.")
+        "[Spooked] Error: (bolt_v1) Could not pack RUN message.")
       _bolt_conn.protocol_error() // TODO: Different error?
     end
 
@@ -290,7 +294,7 @@ actor BoltV1Messenger is BoltMessenger
     """ Send any pipelined messages through the connection. """
     if _requests.size() > 0 then
       _logger(Info) and _logger.log(
-          "[Spooked] Info: Flushing pipeline...")
+          "[Spooked] Info: (bolt_v1) Flushing pipeline...")
 
       let requests = _requests = recover trn Array[ByteSeq] end
       _tcp_conn.writev(consume requests)
@@ -299,7 +303,7 @@ actor BoltV1Messenger is BoltMessenger
   be reset() =>
     """ Reset the Bolt connection. """
     _logger(Info) and _logger.log(
-      "[Spooked] Info: Reseting connection...")
+      "[Spooked] Info: (bolt_v1) Reseting connection...")
 
     // Send a RESET message immediately
     _tcp_conn.write(ResetMessage())
@@ -308,7 +312,7 @@ actor BoltV1Messenger is BoltMessenger
   be _acknowledge_failure() =>
     """ Acknowledge a failure message. """
     _logger(Info) and _logger.log(
-      "[Spooked] Info: Acknowledging failure...")
+      "[Spooked] Info: (bolt_v1) Acknowledging failure...")
 
     // Send an ACK_FAILURE message immediately
     _tcp_conn.write(AckFailureMessage())
@@ -325,7 +329,9 @@ actor BoltV1Messenger is BoltMessenger
       | IGNORED() => IGNORED
       | RECORD()  => RECORD
       else
-        // TODO: Log unexpected message signature
+        _logger(Error) and _logger.log(
+          "[Spooked] Error: (bolt_v1) Received server message with unexpected signature: " +
+          Format.int[U8](message.signature, FormatHex, PrefixDefault, 2))
         UNEXPECTED
       end
 
@@ -346,9 +352,16 @@ actor BoltV1Messenger is BoltMessenger
               _empty_map // CypherMap.empty()
             end
           end
-        else
+        | None =>
           // message.fields is unexpectedly None.
+          // This probably should not occur.
+          _logger(Warn) and _logger.log(
+            "[Spooked] Warning: (bolt_v1) Fields of '" +
+            server_response.string() + "' response is None.")
           None
+        // else
+        //   // message.fields is unexpectedly None.
+        //   None
         end
 
       // Reference the current response handler, and apply to it
@@ -365,5 +378,9 @@ actor BoltV1Messenger is BoltMessenger
       // TODO: [BoltV1Messenger] _handle_response_message
       //    Unexpected problem with extracted structure field
       //    or no response handler available.
+      _logger(Error) and _logger.log(
+        "[Spooked] Error: (bolt_v1) Failed to extract field of '" +
+        server_response.string() + "' response, or no handler was available.")
+      // TODO: _bolt_conn.protocol_error(), cleanup
       None
     end

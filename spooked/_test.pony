@@ -16,11 +16,18 @@ actor Main is TestList
     test(_TestConnectionHandshakeSuccess)
     test(_TestConnectionINITSuccess)
 
+    // TODO: Refactor to use SessionNotify.success for RUN
+    //                       SessionNotify.summary for Results
+
     test(_TestSessionBasic)
     test(_TestSessionPipelined)
     test(_TestSessionReset)
     test(_TestSessionFailure)
     test(_TestSessionIgnored)
+
+    test(_TestSessionResultsStreamed)
+    // test(_TestSessionResultsBuffered)
+    // test(_TestSessionResultsDiscarded)
 
 
 class iso _TestConnectionHandshakeSuccess is UnitTest
@@ -318,6 +325,81 @@ class iso _TestSessionIgnored is UnitTest
     else
       h.fail()
     end
+
+primitive StatementReturn1Through5AsNum
+  fun template(): String val => "UNWIND [1, 2, 3, 4, 5] AS num RETURN num"
+
+class iso _TestSessionResultsStreamed is UnitTest
+  fun name(): String =>
+    "spooked/session/results-streamed"
+
+  fun apply(h: TestHelper) =>
+    try
+      let driver = Neo4j.driver(
+        "bolt://localhost/",
+        ConnectionSettings("spooked", "spooked"),
+        NetAuth(h.env.root as AmbientAuth),
+        StringLogger(Info, TestHelperLogStream(h)))?
+
+      h.long_test(2_000_000_000)
+      h.dispose_when_done(driver)
+
+      driver.session(
+        object iso is SessionNotify
+          let _h: TestHelper = h
+          var _result_count: USize = 0
+
+          fun ref apply(session: Session ref) =>
+            session.run(StatementReturn1Through5AsNum)
+
+          /*
+          fun ref summary(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
+          */
+
+          fun ref result(
+            session: Session ref,
+            statement: CypherStatement val,
+            fields: CypherList val,
+            data: CypherList val)
+          =>
+            _result_count = _result_count + 1
+            try
+              _h.assert_is[CypherStatement val](
+                StatementReturn1Through5AsNum, statement)
+              _h.assert_eq[String]("num", fields.data(0)? as CypherString val)
+              _h.assert_eq[I64](
+                // I64.from[USize](_result_count),
+                _result_count.i64(),
+                data.data(0)? as CypherInteger)
+            end
+
+          fun ref summary(
+            session: Session ref,
+            statement: CypherStatement val,
+            meta: CypherMap val)
+          =>
+            try
+              // if meta.data.contains("type") then
+                // Received results summary
+                _h.assert_eq[String](
+                  "r", meta.data("type")? as CypherString val)
+                _h.assert_eq[USize](5, _result_count)
+                _h.complete(true)
+              // end
+            end
+
+        end)
+    else
+      h.fail()
+    end
+
+// TODO
+  // class iso _TestSessionResultsBuffered is UnitTest
+  // class iso _TestSessionResultsDiscarded is UnitTest
 
 
 actor TestHelperLogStream is OutStream

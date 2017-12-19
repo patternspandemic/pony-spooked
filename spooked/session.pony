@@ -13,6 +13,13 @@ interface SessionNotify
   fun ref apply(session: Session ref): None
     """"""
 
+  fun ref success(
+    session: Session ref,
+    statement: CypherStatement val,
+    meta: CypherMap val) =>
+    """"""
+    None
+
   fun ref result(
     session: Session ref,
     statement: CypherStatement val,
@@ -165,6 +172,12 @@ actor Session
     _notify.results(this, statement, fields, results)
 
   be _success(
+    statement: CypherStatement val,
+    metadata: CypherMap val)
+  =>
+    _notify.success(this, statement, metadata)
+
+  be _summary(
     statement: CypherStatement val,
     metadata: CypherMap val)
   =>

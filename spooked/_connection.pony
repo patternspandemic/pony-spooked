@@ -284,7 +284,8 @@ actor BoltConnection
     end
     // Pass on summary metadata to the session.
     match _session
-    | let s: Session tag => s._success(statement, meta)
+    // | let s: Session tag => s._success(statement, meta)
+    | let s: Session tag => s._summary(statement, meta)
     end
     _result_fields = None
 

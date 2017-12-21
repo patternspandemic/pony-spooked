@@ -3,7 +3,10 @@ use "net"
 
 
 interface CypherStatement
-  """"""
+  """
+  A CypherStatement is generally a primitive simply providing a Cypher template
+  string through the template method.
+  """
   fun template(): String val
 
 

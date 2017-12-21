@@ -220,7 +220,6 @@ actor BoltConnection
     meta: CypherMap val)
   =>
     """ A statement was ignored. """
-    // TODO: [BoltConnection] ignored_run
     match _session
     | let s: Session tag => s._ignored(statement, meta)
     end

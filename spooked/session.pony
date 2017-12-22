@@ -4,8 +4,13 @@ use "net"
 
 interface CypherStatement
   """
-  A CypherStatement is generally a primitive simply providing a Cypher template
-  string through the template method.
+  A `CypherStatement` is an object (often a primitive) which provides a query
+  string template through the `template` method. Sending such a object to be
+  run by a session will result in a number of notifications being received on
+  the corresponding `SessionNotify`. Many of these calls will include a
+  reference to this object, indicating which statement the notification
+  originated from. This is particularly helpful for determining which of
+  possibly many pipelined statements a notification is in response to.
   """
   fun template(): String val
 
@@ -138,14 +143,35 @@ interface SessionNotify
 
 
 primitive Streamed
+  """
+  The type of `ReturnedResults` where each result record is streamed one by one
+  to the SessionNotify as they are consumed from the server. The notification of
+  the entire result set is not guaranteed due to the possibility of failure
+  during streaming. As such additional precautions and logic are required for
+  robust handling of streamed results.
+  """
+
 primitive Buffered
+  """
+  The type of `ReturnedResults` where all result records are buffered until the
+  entire set has been consumed from the server, after which they are sent to the
+  SessionNotify as a collection. Notification of the results collection only
+  occurs with consumption of the entire result set.
+  """
+
 primitive Discarded
+  """
+  The type of `ReturnedResults` where all result records are declared unneeded.
+  The server is told to discard any generated result stream, and no result
+  records are consumed from the server.
+  """
 
 type ReturnedResults is
   ( Streamed
   | Buffered
   | Discarded
   )
+  """ Options specifying how `CypherStatement` results should be handled. """
 
 
 // TODO: [Session] Logging

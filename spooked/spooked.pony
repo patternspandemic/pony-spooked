@@ -2,8 +2,8 @@ use "logger"
 use "net"
 use http = "net/http"
 
-// TODO: [Neo4j.driver()] Documentation
 
+// TODO: [Neo4j.driver()] Documentation
 primitive Neo4j
   fun driver(
     url: String val,

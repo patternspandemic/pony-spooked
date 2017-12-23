@@ -1,5 +1,6 @@
 use "collections"
 
+
 type CypherType is
   ( CypherNull                // absence of value
   /* Property Types */

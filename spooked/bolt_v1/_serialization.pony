@@ -5,6 +5,7 @@ use "itertools"
 
 use ".."
 
+
 primitive _PackStream
   """
   PackStream is a custom data serialisation format inspired heavily by

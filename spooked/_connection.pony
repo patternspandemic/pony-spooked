@@ -3,7 +3,6 @@ use "logger"
 use "net"
 use "net/ssl"
 
-// use "./bolt_v1"
 
 primitive ServiceUnavailable
 primitive UnsupportedProtocolVersion
@@ -287,17 +286,6 @@ actor BoltConnection
     | let s: Session tag => s._summary(statement, meta)
     end
     _result_fields = None
-
-/*
-  // Must be public for sub-package access.
-  be ignored_streamed(meta: CypherMap val) =>
-    """ A stream action was ignored. """
-    // TODO: [BoltConnection] ignored_streamed
-    //    I think this is unneeded, as an ignored request of streamed data is
-    //    due to failure / ignore of previous pipelined RUN. In which case the
-    //    client will have been notified of failure / ignore, and should expect
-    //    any result streams to be ignored in such a case.
-*/
 
   // Must be public for sub-package access.
   be failed_streamed(

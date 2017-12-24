@@ -311,7 +311,7 @@ actor BoltConnection
   // Must be public for sub-package access.
   be successfully_reset(meta: CypherMap val) =>
     match _session
-    | let s: Session tag => s._successfully_reset(this)
+    | let s: Session tag => s._successfully_reset(this, meta)
     end
 
   // Must be public for sub-package access.

@@ -127,7 +127,10 @@ interface SessionNotify
     """
     None
 
-  fun ref reset(session: Session ref) =>
+  fun ref reset(
+    session: Session ref,
+    meta: CypherMap val)
+  =>
     """ Called when the session has been successfully reset. """
     None
 
@@ -174,7 +177,9 @@ type ReturnedResults is
   """ Options specifying how `CypherStatement` results should be handled. """
 
 
-// TODO: [Session] Logging
+// TODO: [Session]
+// - Track whether runs/txs are called after notifications, if so call flush!
+// - Logging
 actor Session
   let _driver: Driver tag
   let _notify: SessionNotify
@@ -210,7 +215,7 @@ actor Session
     """ Receive a connection to the server & whether session can proceed. """
     _connection = connection
     if go_ahead then
-      _go_ahead()
+      _go_ahead_now()
     end
 
   be _handshook() =>
@@ -221,6 +226,9 @@ actor Session
 
   be _go_ahead() =>
     """ Proceed with the work this session should perform. """
+    _go_ahead_now()
+
+  fun ref _go_ahead_now() =>
     _notify(this)
     _flush()
 
@@ -297,13 +305,13 @@ actor Session
       c._reset()
     end
 
-  be _successfully_reset(connection: BoltConnection tag) =>
+  be _successfully_reset(connection: BoltConnection tag, meta: CypherMap val) =>
     if _release_on_reset then
       _notify.closed() // Session was disposed of.
       _connection_pool.release(connection)
       // _connection = None
     else
-      _notify.reset(this)
+      _notify.reset(this, meta)
     end
 
   be _failed_reset(connection: BoltConnection tag, meta: CypherMap val) =>
@@ -331,6 +339,9 @@ actor Session
     Dispose of this session. Attempt to return the connection back to the
     pool if successfully reset.
     """
+    _dispose(release_connection)
+
+  fun ref _dispose(release_connection: Bool = true) =>
       match _connection
       | let c: BoltConnection tag =>
         if release_connection then

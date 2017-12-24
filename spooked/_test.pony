@@ -225,7 +225,10 @@ class iso _TestSessionReset is UnitTest
           fun ref apply(session: Session ref) =>
             session.reset()
 
-          fun ref reset(session: Session ref) =>
+          fun ref reset(
+            session: Session ref,
+            meta: CypherMap val)
+          =>
             _h.complete(true)
 
         end)
